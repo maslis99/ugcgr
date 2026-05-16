@@ -1,0 +1,1084 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Upload, Sparkles, Image as ImageIcon, 
+  Plus, User, Settings, Video, Layers, 
+  Download, Copy, X, Wand2, FileText, Mic, Play,
+  Edit, RefreshCw, Maximize2, Volume2, Film, Send, Check, 
+  ChevronDown, MonitorPlay, Zap, LayoutGrid, Music, Globe, AlertCircle, Lock, Trash2, FileJson
+} from 'lucide-react';
+
+// --- KONFIGURASI API ---
+const apiKey = ""; 
+
+// --- DATA PRESETS ---
+const MOTION_PRESETS = {
+  model: [
+    // --- UMUM & FASHION ---
+    "Gerakan natural dan ringan (General)", 
+    "Pose santai dengan gestur tangan kecil (Fashion)",
+    "Pergerakan tubuh lembut dan terkontrol (Fashion)", 
+    "Perbaiki pakaian secara halus (Fashion)",
+    "Ganti pose secara perlahan (Fashion)", 
+    "Gerakan kepala mengikuti tubuh (Portrait)",
+    "Micro-steps natural (Full Body)", 
+    "Gestur menunjuk atau menyentuh produk (Promo)",
+    "Arahkan wajah sedikit ke kanan/kiri (Beauty)", 
+    "Gerakan napas natural (Chest rise/fall)",
+    
+    // --- MAKANAN & MINUMAN (F&B) ---
+    "Gerakan Makan/Menggigit (Food Tasting)",
+    "Gerakan Minum/Sipping (Beverage)",
+    "Menunjukkan Isi/Tekstur Makanan (Food Detail)",
+    "Ekspresi Menikmati 'Yummy' (Reaction)",
+    "Menuang Air/Saus (Pouring Motion)",
+    
+    // --- SKINCARE & BEAUTY ---
+    "Mengoleskan Krim ke Wajah/Tangan (Application)",
+    "Menunjukkan Tekstur Produk di Jari (Texture Show)",
+    "Memegang Botol di Samping Wajah (Comparison)",
+    "Mencium Aroma Produk (Scent)",
+    
+    // --- GADGET & ALAT ---
+    "Mengetik/Scroll Layar (Interaction)",
+    "Membuka Laptop/Gadget (Unboxing style)",
+    "Menggunakan Alat/Mesin (Active Use)",
+    "Duduk/Menaiki Kendaraan/Alat (Riding/Sitting)",
+    "Memegang Produk dengan Stabil (Tech Showcase)"
+  ],
+  camera: [
+    "Kamera statis eye-level", 
+    "Push-in pelan (Mendekat)", 
+    "Pull-back pelan (Menjauh)",
+    "Slide kanan–kiri halus (Truck)", 
+    "Handheld ringan stabil (Vlog Style)", 
+    "Tilt-up lembut (Reveal)", 
+    "Tilt-down lembut", 
+    "Micro-pan 5–10 derajat", 
+    "Breathing motion subtle",
+    "Tracking Shot (Mundur) - Model Maju",
+    "Orbit/Arc Shot (Mengelilingi Objek)",
+    "Zoom Cepat (Dramatis/Impact)",
+    "Top-Down Moving (Flatlay Video)",
+    "Low Angle (Hero Shot/Megah)",
+    "FPV Drone Style (Dinamis Cepat)"
+  ]
+};
+
+const TALKING_STYLES = [
+    { id: 'silent', name: 'Diam (Silent/No Talk)' },
+    { id: 'casual', name: 'Ngobrol Santai (Casual Vlog)' },
+    { id: 'soft', name: 'Review Lembut (Soft Spoken)' },
+    { id: 'excited', name: 'Promosi Semangat (Excited)' },
+    { id: 'story', name: 'Bercerita (Storytelling)' }
+];
+
+const ACCENT_PRESETS = [
+    { id: 'none', name: '🇮🇩 Indonesia Formal' }, { id: 'gaul', name: '😎 Indo Gaul (Jaksel)' },
+    { id: 'jawa', name: '🟤 Jawa Medok' }, { id: 'sunda', name: '🔵 Sunda Halus' },
+    { id: 'betawi', name: '🟠 Betawi (Jakarta)' }, { id: 'medan', name: '🔴 Batak / Medan' },
+    { id: 'minang', name: '🟡 Minang / Padang' }, { id: 'papua', name: '🟢 Papua' },
+    { id: 'bali', name: '🟣 Bali' }, { id: 'makassar', name: '🟤 Makassar / Bugis' },
+    { id: 'manado', name: '🔵 Manado' }, { id: 'madura', name: '🔴 Madura' },
+    { id: 'palembang', name: '🟡 Palembang' }, { id: 'banjar', name: '🟠 Banjar' },
+    { id: 'aceh', name: '🟢 Aceh' }, { id: 'maluku', name: '🟣 Maluku / Ambon' },
+    { id: 'lombok', name: '🟤 Lombok / Sasak' }, { id: 'banyumasan', name: '🔴 Jawa Ngapak' },
+    { id: 'melayu', name: '🟡 Melayu Riau' }, { id: 'dayak', name: '🟢 Dayak' },
+    { id: 'lampung', name: '🟠 Lampung' }, { id: 'british', name: '🇬🇧 English (British)' }
+];
+
+const ttsVoices = [
+    { id: 'Zephyr', name: 'Zephyr (Pria - Ceria)' }, { id: 'Puck', name: 'Puck (Pria - Santai)' }, 
+    { id: 'Charon', name: 'Charon (Pria - Dalam)' }, { id: 'Kore', name: 'Kore (Wanita - Tegas)' }, 
+    { id: 'Fenrir', name: 'Fenrir (Pria - Semangat)' }, { id: 'Leda', name: 'Leda (Wanita - Muda)' }, 
+    { id: 'Orus', name: 'Orus (Pria - Percaya Diri)' }, { id: 'Aoede', name: 'Aoede (Wanita - Santai)' }, 
+    { id: 'Callirrhoe', name: 'Callirrhoe (Wanita - Lembut)' }, { id: 'Autonoe', name: 'Autonoe (Wanita - Ceria)' }, 
+    { id: 'Enceladus', name: 'Enceladus (Pria - Tenang)' }, { id: 'Iapetus', name: 'Iapetus (Pria - Berat)' }, 
+    { id: 'Umbriel', name: 'Umbriel (Wanita - Kalem)' }, { id: 'Algieba', name: 'Algieba (Pria - Formal)' }, 
+    { id: 'Despina', name: 'Despina (Wanita - Profesional)' }, { id: 'Erinome', name: 'Erinome (Wanita - Ramah)' }, 
+    { id: 'Algenib', name: 'Algenib (Pria - Cepat)' }, { id: 'Rasalgethi', name: 'Rasalgethi (Pria - Serak)' }, 
+    { id: 'Laomedeia', name: 'Laomedeia (Wanita - Energik)' }, { id: 'Achernar', name: 'Achernar (Pria - Jelas)' }, 
+    { id: 'Alnilam', name: 'Alnilam (Pria - Rendah)' }, { id: 'Schedar', name: 'Schedar (Pria - Berwibawa)' }, 
+    { id: 'Gacrux', name: 'Gacrux (Pria - Tua)' }, { id: 'Pulcherrima', name: 'Pulcherrima (Wanita - Elegan)' }, 
+    { id: 'Achird', name: 'Achird (Wanita - Manis)' }, { id: 'Zubenelgenubi', name: 'Zubenelgenubi (Pria - Kasual)' }, 
+    { id: 'Vindemiatrix', name: 'Vindemiatrix (Wanita - Dewasa)' }, { id: 'Sadachbia', name: 'Sadachbia (Pria - Intens)' }, 
+    { id: 'Sadaltager', name: 'Sadaltager (Pria - Santun)' }, { id: 'Sulafat', name: 'Sulafat (Wanita - Ibu)' }
+];
+
+const NEGATIVE_PROMPT_UGC = "morphing face, changing face, changing outfit, eye distortion, bad eyes, weird movement, body clipping, cloth clipping, hands going through body, hands going through clothes, distortion, disfigured, ugly, low quality, pixelated, blur, static, shaky, robotic motion, cartoon, illustration, 3d render, extra limbs, bad anatomy, floating objects, unnatural physics, watermark, text, logo";
+
+// --- HELPER FUNCTIONS ---
+const downloadHighResImage = (imageUrl, filename, targetRatioStr = '9:16') => {
+  const img = new Image();
+  img.crossOrigin = "anonymous"; 
+  img.src = imageUrl;
+  
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let targetW, targetH;
+    switch(targetRatioStr) {
+        case '1:1': targetW = 1080; targetH = 1080; break;
+        case '4:5': targetW = 1080; targetH = 1350; break;
+        case '16:9': targetW = 1920; targetH = 1080; break;
+        case '9:16': default: targetW = 1080; targetH = 1920; break;
+    }
+
+    canvas.width = targetW;
+    canvas.height = targetH;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const scale = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+    
+    const w = img.naturalWidth * scale;
+    const h = img.naturalHeight * scale;
+
+    const x = (canvas.width - w) / 2;
+    const y = (canvas.height - h) / 2;
+
+    ctx.drawImage(img, x, y, w, h);
+    
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png', 1.0); 
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+};
+
+const secureCopy = (text, onSuccess) => {
+  if (!text) return;
+  try {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    if (successful && onSuccess) onSuccess();
+  } catch (err) { console.error('Copy failed', err); }
+};
+
+const compressImage = (file, maxWidth = 1024, quality = 0.8) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            if (width > height) { if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; } } 
+            else { if (height > maxWidth) { width *= maxWidth / height; height = maxWidth; } }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+});
+
+const fileToBase64 = async (file) => {
+    if (!file) return null;
+    if (file.type.match(/image.*/)) { try { return await compressImage(file); } catch (e) { console.error(e); } }
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (error) => reject(error);
+    });
+};
+
+const urlToBase64 = async (url) => {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+        });
+    } catch { return null; }
+};
+
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const base64ToArrayBuffer = (base64) => {
+    const binaryString = window.atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+    return bytes.buffer;
+};
+
+const pcmToWav = (pcmData, sampleRate = 24000) => {
+    const pcm16 = new Int16Array(pcmData);
+    const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+    const view = new DataView(buffer);
+    const writeString = (offset, string) => { for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i)); };
+    writeString(0, 'RIFF'); view.setUint32(4, 36 + pcm16.length * 2, true); writeString(8, 'WAVE'); writeString(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeString(36, 'data');
+    view.setUint32(40, pcm16.length * 2, true);
+    for (let i = 0; i < pcm16.length; i++) view.setInt16(44 + i * 2, pcm16[i], true);
+    return new Blob([view], { type: 'audio/wav' });
+};
+
+// --- API FUNCTIONS ---
+const callApi = async (payload, isText = false) => {
+    const targetModel = isText ? "gemini-2.5-flash-preview-09-2025" : "gemini-2.5-flash-image-preview";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+    
+    for(let attempt = 0; attempt < 3; attempt++) {
+        try {
+            const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if (!res.ok) {
+                if (res.status === 429 || res.status >= 500) {
+                    await wait(500 * (attempt + 1));
+                    continue; 
+                }
+                throw new Error(`API Error: ${res.status}`);
+            }
+            const data = await res.json();
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                 await wait(500);
+                 continue;
+            }
+            if(isText) return data.candidates[0].content.parts[0].text;
+            const imgData = data.candidates[0].content.parts.find(p => p.inlineData);
+            if (imgData) return `data:image/png;base64,${imgData.inlineData.data}`;
+        } catch(e) {
+            if (attempt === 2) return null;
+            await wait(500);
+        }
+    }
+    return null;
+};
+
+const callTtsApi = async (payload) => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+    const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+    const data = await res.json();
+    if (!data.candidates?.[0]) throw new Error("Gagal membuat suara.");
+    const part = data.candidates[0].content.parts[0];
+    return { audioData: part.inlineData.data, sampleRate: 24000 }; 
+};
+
+const generateImageToImageAPI = async (prompt, base64Image, additionalImages = []) => {
+  const parts = [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: base64Image.split(',')[1] } }];
+  additionalImages.forEach(img => { 
+      if (img.data) parts.push({ inlineData: { mimeType: 'image/png', data: img.data.split(',')[1] } }); 
+  });
+  try {
+    const payload = { contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE"] } };
+    return await callApi(payload, false);
+  } catch (e) { return null; }
+};
+
+const generateTextAPI = async (prompt) => {
+    const payload = { contents: [{ parts: [{ text: prompt }] }] };
+    return await callApi(payload, true);
+};
+
+// --- COMPONENTS ---
+
+const StepPanel = ({ number, title, icon: Icon, children }) => (
+  <div className="bg-slate-900 border-2 border-yellow-500 rounded-xl overflow-hidden mb-6 shadow-sm shadow-yellow-500/10 hover:border-yellow-400 transition-colors">
+    <div className="px-5 py-4 border-b border-yellow-500/30 bg-slate-950/50 flex items-center gap-3">
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-600 text-white font-bold text-sm font-mono shadow-md shadow-yellow-500/20">
+        {number}
+      </div>
+      <div className="flex-1 text-slate-100 font-semibold text-sm uppercase tracking-wide flex items-center gap-2">
+          {title} {Icon && <Icon size={14} className="text-yellow-400" />}
+      </div>
+    </div>
+    <div className="p-5 space-y-5 relative">
+       {children}
+    </div>
+  </div>
+);
+
+// --- RESULT CARD ---
+const ResultCard = ({ item, onViewImage, productInfo, selectedRatio, onRegenerate }) => {
+  const [image, setImage] = useState(item.url);
+  const [loading, setLoading] = useState(item.loading);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [showMotion, setShowMotion] = useState(false);
+  
+  const [motionText, setMotionText] = useState("");
+  const [motionData, setMotionData] = useState(null); 
+  const [isMotionLoading, setIsMotionLoading] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("Salin Teks");
+  const [copyStatusJson, setCopyStatusJson] = useState("Salin JSON");
+  const [motionLang, setMotionLang] = useState('ID');
+  const [selectedCamMove, setSelectedCamMove] = useState(MOTION_PRESETS.camera[0]);
+  const [selectedModelMove, setSelectedModelMove] = useState(MOTION_PRESETS.model[0]);
+  const [selectedTalkingStyle, setSelectedTalkingStyle] = useState(TALKING_STYLES[0].id);
+
+  useEffect(() => { setImage(item.url); setLoading(item.loading); }, [item]);
+
+  useEffect(() => {
+    if (motionData) {
+        setMotionText(motionLang === 'ID' ? motionData.text_id : motionData.text_en);
+    }
+  }, [motionLang, motionData]);
+
+  const getAspectRatioStyle = () => {
+      switch (selectedRatio) {
+          case '9:16': return { aspectRatio: '9/16' };
+          case '4:5': return { aspectRatio: '4/5' };
+          case '1:1': return { aspectRatio: '1/1' };
+          case '16:9': return { aspectRatio: '16/9' };
+          default: return { aspectRatio: '9/16' };
+      }
+  };
+
+  const handleRegenerate = async () => {
+    const promptToUse = editPrompt 
+        ? `EDIT INSTRUCTION: ${editPrompt}. \nCONTEXT: ${productInfo}. \nRULES: \n1. PRESERVE the product/subject identity exactly. \n2. ONLY change the specific action/pose/element requested. \n3. IF user asks to USE/RIDE an object (like bike/motor), model must be interacting properly (sitting on it, etc), NOT lifting it. \n4. IF user asks to change pose, ensure background remains consistent unless asked to change. \n5. CRITICAL: KEEP PRODUCT LOGO/BRANDING. REMOVE DIGITAL WATERMARKS/OVERLAY TEXT. \nKualitas: Shot on Sony A7R IV, 8k, Photorealistic.`
+        : "Buat ulang gambar ini dengan variasi berbeda. High quality.";
+
+    setLoading(true);
+    try {
+        const currentBase64 = image ? await urlToBase64(image) : null; 
+        if (currentBase64) {
+             const newUrl = await generateImageToImageAPI(promptToUse, currentBase64);
+             if (newUrl) { setImage(newUrl); setShowEdit(false); setEditPrompt(""); }
+        }
+    } catch(e) {}
+    setLoading(false);
+  };
+
+  const handleMotion = async (force = false) => {
+    if(!force && motionData) return; 
+    setIsMotionLoading(true);
+    setCopyStatus("Salin Teks");
+    setCopyStatusJson("Salin JSON");
+
+    try {
+        const currentBase64 = await urlToBase64(image);
+        const categoryStyle = "Cinematic Vlog/UGC";
+        
+        // UGC is not purely product mode, usually involves a model
+        const isProductMode = false; 
+        
+        const prompt = `Bertindaklah sebagai Director Video AI. Analisis gambar ini (kategori: ${item.category}).
+        1. DETEKSI SUBJEK: Cek Gender (Pria/Wanita), Jumlah Orang, Pakaian, dan Wajah. Sesuaikan deskripsi subject dengan fakta visual ini.
+        2. Gerakan Kamera: "${selectedCamMove}"
+        3. Gerakan Subjek: "${selectedModelMove}"
+        4. Gaya Bicara: "${TALKING_STYLES.find(t=>t.id===selectedTalkingStyle).name}"
+        
+        Tugas: Buat prompt video AI (Google Veo/Flow/Runway/Kling) yang PADAT, JELAS, dan LANGSUNG KE VISUAL.
+        
+        ATURAN DIALOG:
+        - Jika Gaya Bicara bukan 'silent' dan ada model manusia, buatkan dialog pendek Bahasa Indonesia yang menarik dan relevan dengan produk "${productInfo}".
+        - Letakkan dialog di dalam kurung (...) pada bagian 'action'. Contoh: "Mouth moves naturally speaking: (Halo guys, cek produk ini ya!)".
+        
+        ATURAN PENULISAN (STRICT):
+        1. JANGAN bertele-tele. JANGAN mulai dengan kata teknis kamera seperti "Bidikan...", "Video ini...", "Kamera...".
+        2. WAJIB DIMULAI LANGSUNG dengan deskripsi fisik subjek yang SPESIFIK dan AKURAT. 
+           Contoh: 'Model wanita Asia, rambut panjang bergelombang...'
+        3. CONTEXT AWARENESS: AI harus menyesuaikan gerakan berdasarkan ada/tidaknya manusia.
+
+        Wajib berikan output HANYA dalam format JSON valid (tanpa markdown) dengan struktur berikut:
+        {
+           "text_id": "Prompt Bahasa Indonesia (Mulai langsung dengan deskripsi visual subjek)...",
+           "text_en": "Prompt English (Start directly with visual subject description)...",
+           "structured_json": {
+               "shot_description": {
+                   "subject": "(Ganti ini dengan deskripsi subjek spesifik: 'An Indonesian woman...', 'A man...', 'Two people: man and woman...') with the exact same face, facial structure, eyes, hair, clothing, outfit pattern, outfit color, and fabric texture, all identical to the original photo with absolutely no changes.",
+                   "action": "The model moves naturally: ${selectedModelMove}. [IF TALKING: Their mouth moves naturally while speaking in Indonesian with a ${selectedTalkingStyle} tone: (Insert Generated Dialog Here)]. The head follows the body subtly and naturally.",
+                   "setting": "The background and lighting remain exactly the same as the original photo, with no color changes, no altered shadows, and no missing or added elements."
+               },
+               "cinematography": {
+                   "camera_angle": "${selectedCamMove}",
+                   "shot_type": "Mid to full body shot (matching the original photo perspective)",
+                   "lighting": "Stable natural lighting with no changes in brightness or color temperature",
+                   "style": "${categoryStyle}, natural movement, high quality, smooth and natural motion"
+               },
+               "negative": "${NEGATIVE_PROMPT_UGC}"
+           }
+        }`;
+
+        const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: currentBase64.split(',')[1] } }] }] };
+        const textResponse = await callApi(payload, true); 
+        
+        let jsonStr = textResponse.trim();
+        if (jsonStr.startsWith('```json')) {
+            jsonStr = jsonStr.replace(/^```json/, '').replace(/```$/, '');
+        } else if (jsonStr.startsWith('```')) {
+            jsonStr = jsonStr.replace(/^```/, '').replace(/```$/, '');
+        }
+        
+        try {
+            const parsedData = JSON.parse(jsonStr);
+            setMotionData(parsedData);
+            setMotionText(motionLang === 'ID' ? parsedData.text_id : parsedData.text_en);
+        } catch (parseError) {
+            console.error("JSON Parse Error:", parseError);
+            setMotionText(textResponse);
+            setMotionData({ text_id: textResponse, text_en: "Translation unavailable (Error parsing JSON)", structured_json: { error: "Failed to parse JSON" }});
+        }
+
+    } catch(e) { 
+        console.error(e);
+        setMotionText("Gagal koneksi ke AI."); 
+    }
+    setIsMotionLoading(false);
+  };
+
+  const handleCopyText = () => {
+      secureCopy(motionText, () => {
+          setCopyStatus("Tersalin! ✅");
+          setTimeout(() => setCopyStatus("Salin Teks"), 2000);
+      });
+  };
+
+  const handleCopyJson = () => {
+      if (motionData && motionData.structured_json) {
+          const jsonString = JSON.stringify(motionData.structured_json, null, 2);
+          secureCopy(jsonString, () => {
+              setCopyStatusJson("JSON Tersalin! ✅");
+              setTimeout(() => setCopyStatusJson("Salin JSON"), 2000);
+          });
+      }
+  };
+
+  return (
+    <div className="shrink-0 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden group relative flex flex-col shadow-lg shadow-yellow-500/20" 
+         style={{ width: selectedRatio === '16:9' ? '460px' : selectedRatio === '1:1' ? '340px' : '280px' }}>
+        
+        <div className="relative bg-slate-900 w-full" style={getAspectRatioStyle()}>
+             {!loading && image && (
+               <button 
+                 onClick={(e) => {
+                   e.stopPropagation();
+                   onRegenerate();
+                 }}
+                 className="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full flex items-center justify-center text-white transition-all z-50 shadow-sm cursor-pointer"
+                 title="Regenerate This Image"
+               >
+                 <RefreshCw size={14} />
+               </button>
+             )}
+
+            {loading ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-2">
+                    <RefreshCw className="animate-spin" size={24}/>
+                    <span className="text-xs font-mono animate-pulse">GENERATING...</span>
+                </div>
+            ) : image ? (
+                <>
+                    <img src={image} className="w-full h-full object-cover" onClick={() => onViewImage(image)}/>
+                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold text-yellow-400 uppercase border border-white/10">{item.category}</div>
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 gap-2">
+                        <div className="flex gap-2">
+                            <button onClick={() => downloadHighResImage(image, `result-${item.id}.png`, selectedRatio)} className="flex-1 bg-white text-black text-[10px] font-bold py-2 rounded hover:bg-slate-200">DOWNLOAD HD</button>
+                            <button onClick={() => onViewImage(image)} className="p-2 bg-slate-700 text-white rounded"><Maximize2 size={14}/></button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => {setShowEdit(!showEdit); setShowMotion(false);}} className={`text-white text-[10px] py-2 rounded font-medium ${showEdit ? 'bg-yellow-600' : 'bg-slate-700 hover:bg-slate-600'}`}>EDIT</button>
+                            <button onClick={() => {setShowMotion(!showMotion); setShowEdit(false); if(!motionData) handleMotion(true);}} className={`text-white text-[10px] py-2 rounded font-medium ${showMotion ? 'bg-purple-600' : 'bg-slate-700 hover:bg-slate-600'}`}>MOTION</button>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-red-500 gap-2 bg-slate-950 border-2 border-red-900/30 border-dashed rounded-lg">
+                    <AlertCircle size={24}/>
+                    <span className="text-xs font-bold">GAGAL GENERATE</span>
+                    <button onClick={onRegenerate} className="text-[10px] bg-red-900/50 hover:bg-red-900 text-red-200 px-3 py-1 rounded border border-red-800 transition-colors z-50 relative">Coba Lagi</button>
+                </div>
+            )}
+        </div>
+        
+        {(showEdit || showMotion) && !loading && image && (
+            <div className="p-3 bg-slate-900 border-t border-slate-800 w-full animate-in slide-in-from-bottom-2">
+                <div className="flex justify-between mb-2 items-center">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{showEdit ? "Magic Edit" : "Video Prompt"}</span>
+                    <button onClick={() => {setShowEdit(false); setShowMotion(false);}}><X size={12} className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                {showEdit && (
+                    <div className="flex gap-2">
+                        <input value={editPrompt} onChange={e=>setEditPrompt(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-2 text-[10px] text-white focus:border-yellow-500 outline-none" placeholder="Contoh: Ubah background..."/>
+                        <button onClick={handleRegenerate} className="bg-yellow-600 p-2 rounded text-white hover:bg-yellow-500"><Send size={12}/></button>
+                    </div>
+                )}
+                
+                {showMotion && (
+                    <div className="space-y-3">
+                         <div className="flex justify-end gap-1 mb-1">
+                             <button onClick={() => setMotionLang('ID')} className={`text-[9px] px-2 py-0.5 rounded transition-colors border ${motionLang === 'ID' ? 'bg-yellow-600 border-yellow-600 text-white' : 'bg-transparent border-slate-700 text-slate-500 hover:text-white'}`}>IND</button>
+                             <button onClick={() => setMotionLang('EN')} className={`text-[9px] px-2 py-0.5 rounded transition-colors border ${motionLang === 'EN' ? 'bg-yellow-600 border-yellow-600 text-white' : 'bg-transparent border-slate-700 text-slate-500 hover:text-white'}`}>ENG</button>
+                         </div>
+                         
+                         <div className="space-y-2">
+                             <select className="w-full bg-slate-950 border border-slate-700 text-[10px] text-white rounded px-2 py-1 outline-none" value={selectedCamMove} onChange={e=>setSelectedCamMove(e.target.value)}>
+                                 {MOTION_PRESETS.camera.map(m => <option key={m} value={m}>{m}</option>)}
+                             </select>
+                             <select className="w-full bg-slate-950 border border-slate-700 text-[10px] text-white rounded px-2 py-1 outline-none" value={selectedModelMove} onChange={e=>setSelectedModelMove(e.target.value)}>
+                                 {MOTION_PRESETS.model.map(m => <option key={m} value={m}>{m}</option>)}
+                             </select>
+                             <select className="w-full bg-slate-950 border border-slate-700 text-[10px] text-white rounded px-2 py-1 outline-none" value={selectedTalkingStyle} onChange={e=>setSelectedTalkingStyle(e.target.value)}>
+                                 {TALKING_STYLES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                             </select>
+                         </div>
+                         
+                         <button onClick={() => handleMotion(true)} disabled={isMotionLoading} className="w-full bg-purple-600 hover:bg-purple-500 text-white text-[10px] py-1.5 rounded flex items-center justify-center gap-2 font-bold">
+                            {isMotionLoading ? <RefreshCw size={10} className="animate-spin"/> : <RefreshCw size={10}/>}
+                            {isMotionLoading ? "Menganalisis..." : "Buat Ulang Prompt"}
+                         </button>
+                         
+                         <div className="bg-black/30 p-2 rounded border border-slate-800">
+                             <div className="text-[9px] text-slate-300 h-20 overflow-y-auto custom-scrollbar mb-2 leading-relaxed whitespace-pre-wrap">
+                                 {motionText || "Klik tombol untuk membuat prompt..."}
+                             </div>
+                             
+                             {motionText && (
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <button onClick={handleCopyText} className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] py-1.5 rounded border border-slate-700 flex items-center justify-center gap-1 transition-colors">
+                                        <Copy size={10}/> {copyStatus}
+                                    </button>
+                                    <button onClick={handleCopyJson} className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] py-1.5 rounded border border-slate-700 flex items-center justify-center gap-1 transition-colors">
+                                        <FileJson size={10}/> {copyStatusJson}
+                                    </button>
+                                </div>
+                             )}
+                         </div>
+                    </div>
+                )}
+            </div>
+        )}
+    </div>
+  );
+};
+
+// --- MAIN APP ---
+
+const App = () => {
+  const [loading, setLoading] = useState(false);
+  const [resultsReady, setResultsReady] = useState(false);
+  const [isStudioOpen, setIsStudioOpen] = useState(false); 
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  
+  // Custom Alert State to replace window.alert
+  const [alertMessage, setAlertMessage] = useState(null);
+  
+  // Inputs
+  const [mainPhoto, setMainPhoto] = useState(null); 
+  const [mainPhotoFile, setMainPhotoFile] = useState(null);
+  const [additionalPhotos, setAdditionalPhotos] = useState([]); 
+  const [productInfo, setProductInfo] = useState('');
+  
+  // Settings
+  const [models, setModels] = useState([]);
+  const [aiModelConfig, setAiModelConfig] = useState({ gender: 'auto', age: 'Remaja', hijab: false });
+  const [modelStyle, setModelStyle] = useState(''); 
+  const [poseDescription, setPoseDescription] = useState(''); 
+  const [ratio, setRatio] = useState('9:16'); 
+  
+  // Outputs - Only UGC
+  const [generatedImages, setGeneratedImages] = useState({ ugc: [] });
+  const [viewImageUrl, setViewImageUrl] = useState(null);
+  const [showRecModal, setShowRecModal] = useState(false);
+
+  // VO State
+  const [voState, setVoState] = useState({ script: "", audioUrl: null, loadingScript: false, loadingAudio: false, isPlaying: false, category: 'ugc', voice: 'Zephyr', accent: 'none' });
+  const audioRef = useRef(null);
+
+  // HANYA 3 PROMPT UGC SAJA
+  const allPrompts = {
+    ugc: [
+      "UGC. Medium Shot (Waist Up). Front View. Clear focus on subject.",
+      "UGC. Medium Shot. Slightly Angled View (3/4). Natural look.",
+      "UGC. Knee-Up Shot. Front View. Full outfit visible."
+    ]
+  };
+
+  const showAlert = (msg) => {
+      setAlertMessage(msg);
+  };
+
+  const handlePhotoUpload = (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    if (type === 'main') { 
+        setMainPhoto(url); 
+        setMainPhotoFile(file); 
+    }
+    else if (type === 'model') { 
+        if (models.length < 2) setModels([...models, {id: Date.now(), url, file, styleDesc: ''}]); 
+    }
+    else if (type === 'additional') { setAdditionalPhotos([...additionalPhotos, {id: Date.now(), url, file, desc: ''}]); }
+    e.target.value = null;
+  };
+
+  const updateModelDesc = (id, text) => {
+      setModels(prev => prev.map(m => m.id === id ? { ...m, styleDesc: text } : m));
+  };
+
+  const handleRemoveAdditional = (id) => {
+      setAdditionalPhotos(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleApplyRecommendation = async () => {
+    if (!mainPhotoFile) return showAlert("Upload foto produk dulu!");
+    setIsGeneratingDesc(true);
+    try {
+        const b64 = await fileToBase64(mainPhotoFile);
+        const prompt = "Analisis gambar ini. Identifikasi produk. Buat 1 kalimat deskripsi menarik & konsep foto estetik. Bahasa Indonesia.";
+        const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: b64.split(',')[1] } }] }] };
+        const text = await callApi(payload, true);
+        setProductInfo(text.trim());
+        setShowRecModal(false); 
+    } catch (e) { console.error(e); showAlert("Gagal."); } finally { setIsGeneratingDesc(false); }
+  };
+
+  const handleSingleRegenerate = async (category, index) => {
+      setGeneratedImages(prev => {
+          const catItems = [...prev[category]];
+          catItems[index] = { ...catItems[index], loading: true };
+          return { ...prev, [category]: catItems };
+      });
+
+      try {
+          const base64Main = await fileToBase64(mainPhotoFile);
+          const modelImagesData = [];
+          if (models.length > 0) {
+              for(let m of models) {
+                  const b64 = await fileToBase64(m.file);
+                  modelImagesData.push({ data: b64, desc: "Wajah Model Referensi" });
+              }
+          }
+          const supportingImagesData = [];
+          for(let p of additionalPhotos) {
+               if (p.file) {
+                   const b64 = await fileToBase64(p.file);
+                   supportingImagesData.push({ data: b64, desc: p.desc || "Foto Pendukung" });
+               }
+          }
+
+          const promptBase = allPrompts[category][index];
+          const ratioMap = { '9:16': 'Vertical 9:16', '4:5': 'Vertical Feed 4:5', '1:1': 'Square 1:1', '16:9': 'Landscape 16:9' };
+          const ratioString = ratioMap[ratio] || '9:16';
+          
+          let fullPrompt = `(ASPECT RATIO: ${ratioString}). Produk utama ada di gambar pertama. ${productInfo}. ${promptBase}`;
+
+          // ONLY UGC Logic
+          const hasCustomBg = supportingImagesData.length > 0;
+          let bgInstruction = "GANTI TOTAL BACKGROUND ASLI dengan lokasi realistik yang sesuai.";
+          if (hasCustomBg) bgInstruction = "INSTRUKSI MUTLAK: GUNAKAN FOTO PENDUKUNG (CUSTOM BACKGROUND) SEBAGAI LATAR. HARMONISASI PENCAHAYAAN (Lighting Match): Samakan arah cahaya, bayangan, dan tone warna model dengan background agar MENYATU REALISTIS.";
+          const lowerInfo = productInfo.toLowerCase();
+          const isFashion = lowerInfo.match(/baju|kaos|kemeja|celana|rok|dress|jaket|hoodie|fashion|pakaian|batik|gamis|tunik|blouse|sweater|jilbab|hijab/);
+          const isBeauty = lowerInfo.match(/serum|toner|face wash|sabun|lotion|skincare|beauty|kosmetik|lipstik|parfum|shampoo|body wash|pembersih wajah/);
+          const isFood = lowerInfo.match(/snack|makanan|minuman|keripik|kopi|teh|susu|coklat|roti|kue|biskuit/);
+          const isLargeItem = lowerInfo.match(/sepeda|motor|mobil|kursi|sofa|meja|lemari|treadmill|alat olahraga|gym|mesin/);
+          let holdingInstruction = ""; let poseInstruction = "";
+          const lowerPose = poseDescription ? poseDescription.toLowerCase() : "";
+          const descriptionWantsHold = lowerInfo.includes('pegang') || lowerInfo.includes('hold') || lowerInfo.includes('menunjukkan') || lowerInfo.includes('bawa');
+          
+          if (poseDescription && poseDescription.trim() !== "") {
+              poseInstruction = `STRICT USER POSE: "${poseDescription}". Ignore standard presets. Follow this pose exactly.`;
+              holdingInstruction = "Model interaction defined by STRICT USER POSE.";
+          } else if (isFashion) {
+              const handPoseVariations = ["HAND POSE: One hand on hip.", "HAND POSE: Both hands relaxed.", "HAND POSE: One hand touching fabric.", "HAND POSE: Walking motion.", "HAND POSE: One hand fixing hair.", "HAND POSE: Hands in pockets."];
+              poseInstruction = `${handPoseVariations[index % handPoseVariations.length]} (DO NOT COPY POSE FROM ORIGINAL PHOTO).`;
+              holdingInstruction = descriptionWantsHold ? `PRIORITY: Model is HOLDING/SHOWING the fashion item.` : "HANDS FREE FROM OBJECTS.";
+          } else if (isLargeItem) {
+              holdingInstruction = "INTERACTION: Model is USING/SITTING ON/RIDING the product. DO NOT LIFT.";
+              poseInstruction = "Pose: Active interaction appropriate for the item.";
+          } else {
+              holdingInstruction = "MODEL MUST HOLD THE PRODUCT NATURALLY.";
+              if (isBeauty) {
+                  const beautyPoses = ["Pose: Holding bottle near cheek.", "Pose: Holding product towards lens.", "Pose: One hand holding, other pointing.", "Pose: Holding near chin.", "Pose: Squeezing tube.", "Pose: Selfie style."];
+                  poseInstruction = beautyPoses[index % beautyPoses.length];
+              } else if (isFood) {
+                  const foodPoses = ["Pose: Holding near mouth.", "Pose: Holding package clearly.", "Pose: Presenting food.", "Pose: Holding with both hands.", "Pose: Giving thumbs up.", "Pose: Offering product."];
+                  poseInstruction = foodPoses[index % foodPoses.length];
+              } else {
+                  const generalPoses = ["Pose: Holding firmly.", "Pose: Presenting with palms open.", "Pose: Holding at waist.", "Pose: Interacting with features.", "Pose: Holding up.", "Pose: Casual holding."];
+                  poseInstruction = generalPoses[index % generalPoses.length];
+              }
+          }
+          fullPrompt += ` INSTRUKSI VISUAL UTAMA (STRICT): 1. ${bgInstruction} 2. ${holdingInstruction} 3. ${poseInstruction} 4. ANTI-KARDUS 5. MEDIUM SHOT 6. POSE BARU 7. PRODUCT FIDELITY 8. NO WATERMARK 9. NEGATIVE: NO CROSSED ARMS 10. HIGH FIDELITY.`;
+          
+          if (models.length > 0) {
+              let combinedModelStyle = models.length === 1 ? (models[0].styleDesc || modelStyle ? `Model MUST wear: "${models[0].styleDesc || modelStyle}"` : "Auto-match outfit.") : models.map((m, i) => `[Person ${i+1}] MUST wear: "${m.styleDesc || "Standard outfit"}"`).join(". ");
+              fullPrompt += ` FACE SWAP PRIORITY: Use uploaded references. ${combinedModelStyle}`;
+          } else {
+              const gender = aiModelConfig.gender === 'auto' ? 'Orang Indonesia' : (aiModelConfig.gender === 'female' ? 'Wanita Indonesia' : 'Pria Indonesia');
+              let hijabInstruction = aiModelConfig.hijab ? "WAJIB MEMAKAI HIJAB." : "WAJIB RAMBUT TERLIHAT (REMOVE HEADSCARF).";
+              fullPrompt += ` MODEL AI: ${gender}, usia ${aiModelConfig.age}. ${hijabInstruction}`;
+          }
+
+          let supportingPrompt = "";
+          if (supportingImagesData.length > 0) {
+              supportingPrompt += " \n[MULTI-IMAGE INSTRUCTIONS]:\n";
+              supportingImagesData.forEach((img, i) => {
+                  const desc = img.desc ? img.desc.toLowerCase() : "";
+                  if (desc.includes("latar") || desc.includes("background")) supportingPrompt += `* IMAGE ${i+1} IS THE BACKGROUND.\n`;
+                  else if (desc.includes("pegang") || desc.includes("hold")) supportingPrompt += `* IMAGE ${i+1} IS THE PROP.\n`;
+              });
+          }
+          fullPrompt += supportingPrompt + " Kualitas: Shot on Sony A7R IV, 8k.";
+          
+          const currentAdditionalImages = [...modelImagesData, ...supportingImagesData];
+          const url = await generateImageToImageAPI(fullPrompt, base64Main, currentAdditionalImages);
+          
+          setGeneratedImages(prev => {
+              const catItems = [...prev[category]];
+              catItems[index] = { ...catItems[index], url: url, loading: false, id: Date.now() }; 
+              return { ...prev, [category]: catItems };
+          });
+      } catch(e) {
+          setGeneratedImages(prev => {
+              const catItems = [...prev[category]];
+              catItems[index] = { ...catItems[index], loading: false };
+              return { ...prev, [category]: catItems };
+          });
+      }
+  };
+
+  const runGenerationProcess = async () => {
+    setLoading(true); setResultsReady(true);
+    // Initialize 3 items for UGC only
+    const init = (cat) => Array(3).fill(0).map((_,i) => ({ id: Math.random(), url: '', category: cat, loading: true }));
+    setGeneratedImages({ ugc: init('ugc') });
+    
+    try {
+        const base64Main = await fileToBase64(mainPhotoFile);
+        const modelImagesData = [];
+        if (models.length > 0) {
+            for(let m of models) {
+                const b64 = await fileToBase64(m.file);
+                modelImagesData.push({ data: b64, desc: "Wajah Model Referensi" });
+            }
+        }
+        const supportingImagesData = [];
+        for(let p of additionalPhotos) {
+             if (p.file) {
+                 const b64 = await fileToBase64(p.file);
+                 supportingImagesData.push({ data: b64, desc: p.desc || "Foto Pendukung" });
+             }
+        }
+        
+        const cats = ['ugc'];
+        await Promise.all(cats.map(async (cat) => {
+            const promptList = allPrompts[cat];
+            const promises = promptList.map(async (pBase, idx) => {
+                await wait(idx * 100); 
+                const ratioMap = { '9:16': 'Vertical 9:16', '4:5': 'Vertical Feed 4:5', '1:1': 'Square 1:1', '16:9': 'Landscape 16:9' };
+                const ratioString = ratioMap[ratio] || '9:16';
+                let fullPrompt = `(ASPECT RATIO: ${ratioString}). Produk: ${productInfo}.`;
+                
+                // UGC Build Prompt logic
+                const hasCustomBg = supportingImagesData.length > 0;
+                let bgInstruction = "GANTI TOTAL BACKGROUND ASLI dengan lokasi realistik yang sesuai.";
+                if (hasCustomBg) bgInstruction = "INSTRUKSI MUTLAK: GUNAKAN FOTO PENDUKUNG (CUSTOM BACKGROUND) SEBAGAI LATAR. HARMONISASI PENCAHAYAAN (Lighting Match): Samakan arah cahaya, bayangan, dan tone warna model dengan background agar MENYATU REALISTIS.";
+                const lowerInfo = productInfo.toLowerCase();
+                const isFashion = lowerInfo.match(/baju|kaos|kemeja|celana|rok|dress|jaket|hoodie|fashion|pakaian|batik|gamis|tunik|blouse|sweater|jilbab|hijab/);
+                const isBeauty = lowerInfo.match(/serum|toner|face wash|sabun|lotion|skincare|beauty|kosmetik|lipstik|parfum|shampoo|body wash|pembersih wajah/);
+                const isFood = lowerInfo.match(/snack|makanan|minuman|keripik|kopi|teh|susu|coklat|roti|kue|biskuit/);
+                const isLargeItem = lowerInfo.match(/sepeda|motor|mobil|kursi|sofa|meja|lemari|treadmill|alat olahraga|gym|mesin/);
+                let holdingInstruction = ""; let poseInstruction = "";
+                const descriptionWantsHold = lowerInfo.includes('pegang') || lowerInfo.includes('hold') || lowerInfo.includes('menunjukkan') || lowerInfo.includes('bawa');
+                
+                if (poseDescription && poseDescription.trim() !== "") {
+                    poseInstruction = `STRICT USER POSE: "${poseDescription}". Ignore standard presets. Follow this pose exactly.`;
+                    holdingInstruction = "Model interaction defined by STRICT USER POSE.";
+                } else if (isFashion) {
+                    const handPoseVariations = ["HAND POSE: One hand on hip.", "HAND POSE: Both hands relaxed.", "HAND POSE: One hand touching fabric."];
+                    poseInstruction = `${handPoseVariations[idx % handPoseVariations.length]} (DO NOT COPY POSE FROM ORIGINAL PHOTO).`;
+                    holdingInstruction = descriptionWantsHold ? `PRIORITY: Model is HOLDING/SHOWING the fashion item.` : "HANDS FREE FROM OBJECTS.";
+                } else if (isLargeItem) {
+                    holdingInstruction = "INTERACTION: Model is USING/SITTING ON/RIDING the product. DO NOT LIFT.";
+                    poseInstruction = "Pose: Active interaction appropriate for the item.";
+                } else {
+                    holdingInstruction = "MODEL MUST HOLD THE PRODUCT NATURALLY.";
+                    if (isBeauty) {
+                        const beautyPoses = ["Pose: Holding bottle near cheek.", "Pose: Holding product towards lens.", "Pose: One hand holding, other pointing."];
+                        poseInstruction = beautyPoses[idx % beautyPoses.length];
+                    } else if (isFood) {
+                        const foodPoses = ["Pose: Holding near mouth.", "Pose: Holding package clearly.", "Pose: Presenting food."];
+                        poseInstruction = foodPoses[idx % foodPoses.length];
+                    } else {
+                        const generalPoses = ["Pose: Holding firmly.", "Pose: Presenting with palms open.", "Pose: Holding at waist."];
+                        poseInstruction = generalPoses[idx % generalPoses.length];
+                    }
+                }
+                fullPrompt += ` INSTRUKSI VISUAL UTAMA (STRICT): 1. ${bgInstruction} 2. ${holdingInstruction} 3. ${poseInstruction} 4. ANTI-KARDUS 5. MEDIUM SHOT 6. POSE BARU 7. PRODUCT FIDELITY 8. NO WATERMARK 9. NEGATIVE: NO CROSSED ARMS 10. HIGH FIDELITY.`;
+                
+                if (models.length > 0) {
+                    let combinedModelStyle = models.length === 1 ? (models[0].styleDesc || modelStyle ? `Model MUST wear: "${models[0].styleDesc || modelStyle}"` : "Auto-match outfit.") : models.map((m, i) => `[Person ${i+1}] MUST wear: "${m.styleDesc || "Standard outfit"}"`).join(". ");
+                    fullPrompt += ` FACE SWAP PRIORITY: Use uploaded references. ${combinedModelStyle}`;
+                } else {
+                    const gender = aiModelConfig.gender === 'auto' ? 'Orang Indonesia' : (aiModelConfig.gender === 'female' ? 'Wanita Indonesia' : 'Pria Indonesia');
+                    let hijabInstruction = aiModelConfig.hijab ? "WAJIB MEMAKAI HIJAB." : "WAJIB RAMBUT TERLIHAT (REMOVE HEADSCARF).";
+                    fullPrompt += ` MODEL AI: ${gender}, usia ${aiModelConfig.age}. ${hijabInstruction}`;
+                }
+
+                fullPrompt += " UGC lifestyle context.";
+
+                const currentAdditionalImages = [...modelImagesData, ...supportingImagesData];
+                const url = await generateImageToImageAPI(fullPrompt, base64Main, currentAdditionalImages);
+                setGeneratedImages(prev => {
+                    const list = [...prev[cat]]; list[idx] = { ...list[idx], url: url, loading: false }; 
+                    return { ...prev, [cat]: list };
+                });
+            });
+            return Promise.all(promises);
+        }));
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  };
+  
+  const handleGenerateButton = () => {
+    if (!mainPhotoFile) return showAlert("Upload foto produk utama dulu ya!");
+    if (!productInfo.trim()) { setShowRecModal(true); return; }
+    runGenerationProcess();
+  };
+
+  const handleSkipRecommendation = () => { setShowRecModal(false); runGenerationProcess(); };
+
+  useEffect(() => { if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; } }, [voState.audioUrl]);
+  const handleGenerateScript = async () => {
+      setVoState(prev => ({ ...prev, loadingScript: true }));
+      const selectedAccentObj = ACCENT_PRESETS.find(a => a.id === voState.accent);
+      const accentName = selectedAccentObj ? selectedAccentObj.name : voState.accent;
+      let prompt = `Buat naskah voice over pendek (maks 20 detik) untuk video ${voState.category} produk ini. Deskripsi: "${productInfo}". Logat ${accentName}.`;
+      try {
+          let payload = { contents: [{ parts: [{ text: prompt }] }] };
+          if(mainPhotoFile) {
+              const b64 = await fileToBase64(mainPhotoFile);
+              payload.contents[0].parts.push({ inlineData: { mimeType: 'image/jpeg', data: b64.split(',')[1] } });
+          }
+          const text = await callApi(payload, true);
+          setVoState(prev => ({ ...prev, script: text.trim(), loadingScript: false, audioUrl: null }));
+      } catch (e) { setVoState(prev => ({ ...prev, script: "Gagal.", loadingScript: false })); }
+  };
+
+  const handleGenerateAudio = async () => {
+      if(!voState.script) return showAlert("Tulis naskah dulu!");
+      let promptText = voState.script;
+      if (voState.accent && voState.accent !== 'none') {
+          const selectedAccentObj = ACCENT_PRESETS.find(a => a.id === voState.accent);
+          const accentName = selectedAccentObj ? selectedAccentObj.name.replace(/[\u{0080}-\u{FFFF}]/gu,"").trim() : ""; 
+          promptText = `Say in ${accentName} accent: "${voState.script}"`;
+      }
+      if(audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      setVoState(prev => ({ ...prev, loadingAudio: true, audioUrl: null })); 
+      try {
+          const payload = { contents: [{ parts: [{ text: promptText }] }], generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voState.voice } } } }, model: "gemini-2.5-flash-preview-tts" };
+          const { audioData, sampleRate } = await callTtsApi(payload);
+          const blob = pcmToWav(base64ToArrayBuffer(audioData), sampleRate);
+          const url = URL.createObjectURL(blob);
+          setVoState(prev => ({ ...prev, audioUrl: url, loadingAudio: false }));
+      } catch (e) { showAlert("Gagal."); setVoState(prev => ({ ...prev, loadingAudio: false })); }
+  };
+
+  const toggleAudio = () => {
+      if(!voState.audioUrl) return;
+      if(!audioRef.current) audioRef.current = new Audio(voState.audioUrl);
+      if(voState.isPlaying) { audioRef.current.pause(); setVoState(p=>({...p, isPlaying:false})); }
+      else { audioRef.current.play(); setVoState(p=>({...p, isPlaying:true})); audioRef.current.onended = () => setVoState(p=>({...p, isPlaying:false})); }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-300 font-sans pb-20 selection:bg-yellow-500/30">
+      
+      {/* Custom Alert Modal Replacer */}
+      {alertMessage && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-yellow-500 w-full max-w-sm rounded-xl p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200">
+                <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-white mb-6">{alertMessage}</h3>
+                <button onClick={() => setAlertMessage(null)} className="bg-yellow-600 hover:bg-yellow-500 text-white py-2 px-8 rounded-full font-bold transition-colors w-full">
+                    Tutup
+                </button>
+            </div>
+        </div>
+      )}
+
+      <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-3">
+              <div className="bg-yellow-600 p-2 rounded-lg text-white"><Zap size={20} fill="currentColor"/></div>
+              <div>
+                  <h1 className="text-white font-bold text-lg tracking-tight">GENERATOR TIM <span className="text-yellow-500">GREEN SAFIR</span></h1>
+                  <p className="text-[10px] text-slate-500 font-medium">Tools Sulap AFFILIATE</p>
+              </div>
+          </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-12 gap-8">
+        <div className="md:col-span-5 space-y-2">
+            <StepPanel number="1" title="Upload Produk" icon={Upload}>
+                <div className="relative aspect-square bg-slate-950 rounded-lg border-2 border-dashed border-slate-800 hover:border-yellow-500/50 transition-all flex flex-col items-center justify-center group cursor-pointer overflow-hidden">
+                    {mainPhoto ? (
+                        <>
+                            <img src={mainPhoto} className="w-full h-full object-contain p-4"/>
+                            <button onClick={(e)=>{e.stopPropagation(); setMainPhoto(null); setMainPhotoFile(null);}} className="absolute top-2 right-2 bg-red-500/80 p-1.5 rounded text-white hover:bg-red-500 z-20"><X size={14}/></button>
+                        </>
+                    ) : (
+                        <>
+                            <Upload size={32} className="text-slate-600 mb-2 group-hover:text-yellow-500 transition-colors"/>
+                            <p className="text-xs text-slate-500 font-medium">Klik Upload Foto Utama</p>
+                        </>
+                    )}
+                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handlePhotoUpload(e, 'main')} disabled={!!mainPhoto}/>
+                </div>
+                <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">Foto Pendukung (Opsional)</p>
+                    {additionalPhotos.map(p => (
+                        <div key={p.id} className="flex gap-2 items-center bg-slate-950 p-2 rounded border border-slate-800">
+                            <img src={p.url} className="w-8 h-8 rounded object-cover"/>
+                            <input placeholder="Keterangan (misal: Background)" className="flex-1 bg-transparent text-xs outline-none" onChange={e => { const newPhotos = additionalPhotos.map(ap => ap.id === p.id ? {...ap, desc: e.target.value} : ap); setAdditionalPhotos(newPhotos); }}/>
+                            <button onClick={() => handleRemoveAdditional(p.id)} className="text-slate-500 hover:text-red-400"><Trash2 size={14}/></button>
+                        </div>
+                    ))}
+                    {additionalPhotos.length < 2 && (
+                        <label className="flex items-center justify-center gap-2 py-2 border border-slate-800 rounded text-xs text-slate-500 hover:bg-slate-800 cursor-pointer"><Plus size={12}/> Tambah Foto Lain<input type="file" className="hidden" onChange={e => { const file = e.target.files[0]; if(file) setAdditionalPhotos([...additionalPhotos, {id: Date.now(), url: URL.createObjectURL(file), file: file, desc: ''}]); }}/></label>
+                    )}
+                </div>
+            </StepPanel>
+
+            <StepPanel number="2" title="Jelaskan Produk Anda & Konsep Foto" icon={FileText}>
+                <div className="animate-in fade-in">
+                    <div className="flex justify-end mb-2">
+                        <button onClick={handleApplyRecommendation} disabled={isGeneratingDesc} className="text-[10px] text-yellow-400 flex items-center gap-1 hover:text-white">{isGeneratingDesc ? <RefreshCw size={10} className="animate-spin"/> : <Sparkles size={10}/>} {isGeneratingDesc ? 'Menganalisis...' : 'Auto-Generate'}</button>
+                    </div>
+                    <textarea value={productInfo} onChange={e => setProductInfo(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:border-yellow-500 outline-none h-24 resize-none" placeholder="Jelaskan produkmu..."/>
+                    <div className="mt-3">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Rasio Gambar</label>
+                        <select value={ratio} onChange={e=>setRatio(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs outline-none">
+                            <option value="9:16">9:16 (Story/Tiktok)</option><option value="4:5">4:5 (Feed Portrait)</option><option value="1:1">1:1 (Feed/Square)</option><option value="16:9">16:9 (Landscape/Youtube)</option>
+                        </select>
+                    </div>
+                </div>
+            </StepPanel>
+
+            <StepPanel number="3" title="Model AI" icon={User}>
+                {models.length < 2 && (
+                    <label className="group block w-full text-center py-4 border-2 border-dashed border-slate-700 rounded-xl text-xs text-slate-400 cursor-pointer hover:border-yellow-500 hover:bg-slate-900/50 hover:text-yellow-400 transition-all mb-4 relative overflow-hidden">
+                        <div className="flex flex-col items-center justify-center gap-1 relative z-10"><Plus size={16} className="mb-1 text-slate-500 group-hover:text-yellow-500 transition-colors"/><span className="font-bold">UPLOAD WAJAH MODEL SENDIRI</span></div>
+                        <input type="file" className="hidden" onChange={e => handlePhotoUpload(e, 'model')}/>
+                    </label>
+                )}
+                {models.length > 0 ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                            {models.map(m => (<div key={m.id} className="relative aspect-square bg-slate-950 rounded border border-slate-800 group"><img src={m.url} className="w-full h-full object-cover"/><button onClick={() => setModels(models.filter(x => x.id !== m.id))} className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full"><X size={10}/></button></div>))}
+                        </div>
+                        <div className="space-y-4 border-t border-slate-800 pt-4">
+                            {models.map((m, index) => (
+                                <div key={m.id} className="flex gap-3 mb-3 p-2 border border-slate-800 rounded bg-slate-900/50">
+                                    <img src={m.url} className="w-12 h-12 object-cover rounded" />
+                                    <div className="flex-1">
+                                        <textarea value={m.styleDesc || ''} onChange={(e) => updateModelDesc(m.id, e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white outline-none resize-none h-16" placeholder={`Pakaian Model ${index+1}...`}/>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                         <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-4">
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div><label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase">Gender</label><select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white" value={aiModelConfig.gender} onChange={e=>setAiModelConfig({...aiModelConfig, gender: e.target.value})}><option value="auto">Otomatis</option><option value="female">Wanita</option><option value="male">Pria</option></select></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase">Usia</label><select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white" value={aiModelConfig.age} onChange={e=>setAiModelConfig({...aiModelConfig, age: e.target.value})}><option>Anak-anak</option><option>Remaja</option><option>Dewasa</option><option>Orang Tua</option></select></div>
+                            </div>
+                            <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-900 rounded-lg border border-slate-700 hover:border-yellow-500 group"><div className={`w-4 h-4 rounded border flex items-center justify-center ${aiModelConfig.hijab ? 'bg-yellow-600 border-yellow-600' : 'border-slate-500'}`}>{aiModelConfig.hijab && <Check size={10} className="text-white"/>}</div><input type="checkbox" checked={aiModelConfig.hijab} onChange={e=>setAiModelConfig({...aiModelConfig, hijab: e.target.checked})} className="hidden"/><span className="text-xs text-slate-300">Hijab?</span></label>
+                        </div>
+                    </div>
+                )}
+            </StepPanel>
+
+            <button onClick={handleGenerateButton} disabled={loading} className={`w-full py-4 rounded-xl font-bold text-sm uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 ${loading ? 'bg-slate-800 text-slate-500 cursor-wait' : 'bg-yellow-600 hover:bg-yellow-500 text-white'}`}>{loading ? <RefreshCw className="animate-spin" size={16}/> : <Sparkles size={16}/>}{loading ? "PROSES..." : "GENERATE ASET"}</button>
+        </div>
+
+        <div className="md:col-span-7 space-y-8">
+            {['ugc'].map((cat) => (
+                <div key={cat} className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                        {cat === 'ugc' && <User size={16} className="text-green-500"/>}
+                        <h2 className="text-sm font-bold text-white uppercase tracking-wider">{cat} Photos</h2>
+                    </div>
+                    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                        {resultsReady ? generatedImages[cat].map((item, idx) => (
+                            <ResultCard key={item.id} item={item} onViewImage={setViewImageUrl} productInfo={productInfo} selectedRatio={ratio} onRegenerate={() => handleSingleRegenerate(cat, idx)} />
+                        )) : (
+                            Array(3).fill(0).map((_, i) => (
+                                <div key={i} className="shrink-0 bg-slate-900/50 rounded-lg border border-dashed border-slate-800 flex items-center justify-center" style={{ width: ratio === '16:9' ? '460px' : ratio === '1:1' ? '340px' : '280px', aspectRatio: ratio.replace(':','/') }}><ImageIcon className="text-slate-800" size={24}/></div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            ))}
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 mt-8 transition-all">
+                <div className="flex justify-between items-center cursor-pointer group" onClick={() => setIsStudioOpen(!isStudioOpen)}>
+                    <div className="flex items-center gap-3"><div className="w-10 h-10 bg-yellow-500/10 rounded-full flex items-center justify-center text-yellow-400"><Mic size={20}/></div><div><h2 className="text-white font-bold">Voice Over Studio</h2></div></div>
+                    <ChevronDown className={`transform transition-transform ${isStudioOpen ? 'rotate-180' : 'rotate-0'}`} />
+                </div>
+                {isStudioOpen && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 animate-in slide-in-from-top-2">
+                        <div className="space-y-3">
+                            <textarea value={voState.script} onChange={e => setVoState({...voState, script: e.target.value, audioUrl: null})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm h-32 resize-none outline-none" placeholder="Tulis naskah..."/>
+                            <div className="grid grid-cols-2 gap-2">
+                                <select className="bg-slate-950 border border-slate-800 text-xs rounded p-2 text-white" value={voState.voice} onChange={e=>setVoState({...voState, voice: e.target.value})}>{ttsVoices.map(v => (<option key={v.id} value={v.id}>{v.name}</option>))}</select>
+                                <button onClick={handleGenerateAudio} disabled={voState.loadingAudio} className="bg-yellow-600 text-white text-xs font-bold rounded flex items-center justify-center gap-2">{voState.loadingAudio ? <RefreshCw className="animate-spin" size={14}/> : <Volume2 size={14}/>} Audio</button>
+                            </div>
+                        </div>
+                        <div className="flex flex-col justify-center items-center bg-slate-950 border border-slate-800 rounded-lg p-6">
+                            {voState.audioUrl ? (
+                                <div className="space-y-4 w-full">
+                                    <button onClick={toggleAudio} className="w-16 h-16 rounded-full bg-yellow-500 mx-auto flex items-center justify-center text-white">{voState.isPlaying ? <X size={24}/> : <Play size={24} fill="white" />}</button>
+                                    <a href={voState.audioUrl} download="voiceover.wav" className="block w-full py-2 bg-slate-800 text-white text-xs font-bold rounded text-center">Download WAV</a>
+                                </div>
+                            ) : <p className="text-xs text-slate-600">Audio ready here</p>}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+      </main>
+
+      <footer className="mt-12 border-t border-slate-800 py-6 text-center">
+           <p className="text-xs text-slate-500 font-mono">GREEN SAFIR | 2026</p>
+      </footer>
+
+      {viewImageUrl && (
+          <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4" onClick={() => setViewImageUrl(null)}>
+              <img src={viewImageUrl} className="max-h-[90vh] max-w-full rounded shadow-2xl" onClick={e => e.stopPropagation()}/>
+          </div>
+      )}
+
+      {showRecModal && (
+          <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-gray-800 border border-yellow-500 w-full max-w-lg rounded-xl p-6 shadow-2xl">
+                  <h3 className="text-xl font-bold text-yellow-400 mb-4">Rekomendasi Pengisian</h3>
+                  <div className="flex justify-end gap-4 mt-8">
+                      <button onClick={handleSkipRecommendation} className="bg-gray-600 text-white py-2 px-6 rounded-full">Abaikan</button>
+                      <button onClick={handleApplyRecommendation} disabled={isGeneratingDesc} className="bg-yellow-600 text-white py-2 px-6 rounded-full">{isGeneratingDesc ? '...' : 'Generate Deskripsi'}</button>
+                  </div>
+              </div>
+          </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
