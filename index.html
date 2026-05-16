@@ -1,0 +1,818 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Upload, Sparkles, Image as ImageIcon, 
+  Plus, User, Settings, Video, Layers, 
+  Download, Copy, X, Wand2, FileText, Mic, Play,
+  Edit, RefreshCw, Maximize2, Volume2, Film, Send, Check, 
+  ChevronDown, MonitorPlay, Zap, LayoutGrid, Music, Globe, AlertCircle, Lock, Trash2, FileJson
+} from 'lucide-react';
+
+// --- API CONFIGURATION ---
+const apiKey = "";
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'green-safir-ugc';
+
+// --- DATA PRESETS ---
+const MOTION_PRESETS = {
+  model: [
+    "Natural and light movement (General)", 
+    "Relaxed pose with small hand gestures (Fashion)",
+    "Soft, controlled body movement (Fashion)", 
+    "Subtle clothing adjustment (Fashion)",
+    "Slow pose transition (Fashion)", 
+    "Head follows body naturally (Portrait)",
+    "Micro-steps movement (Full Body)", 
+    "Pointing or touching product (Promo)",
+    "Slight head tilt (Beauty)", 
+    "Natural breathing motion",
+    "Eating/Tasting movement (F&B)",
+    "Drinking/Sipping movement (Beverage)",
+    "Applying cream to face/hands (Skincare)",
+    "Showing product texture (Texture Show)",
+    "Typing/Scrolling screen (Interaction)",
+    "Unboxing style movement (Gadget)"
+  ],
+  camera: [
+    "Static eye-level camera", 
+    "Slow push-in (Zoom in)", 
+    "Slow pull-back (Zoom out)",
+    "Smooth side-to-side slide (Truck)", 
+    "Light handheld stability (Vlog Style)", 
+    "Subtle tilt-up (Reveal)", 
+    "Subtle tilt-down", 
+    "Micro-pan 5-10 degrees", 
+    "Subtle breathing motion",
+    "Tracking Shot (Backward) - Model Forward",
+    "Orbit/Arc Shot (Circular)",
+    "Fast Zoom (Dramatic)",
+    "Top-Down Moving (Flatlay)",
+    "Low Angle (Hero Shot)",
+    "FPV Drone Style (Dynamic)"
+  ]
+};
+
+const TALKING_STYLES = [
+    { id: 'silent', name: 'Diam (Silent/No Talk)' },
+    { id: 'casual', name: 'Ngobrol Santai (Casual Vlog)' },
+    { id: 'soft', name: 'Review Lembut (Soft Spoken)' },
+    { id: 'excited', name: 'Promosi Semangat (Excited)' },
+    { id: 'story', name: 'Bercerita (Storytelling)' }
+];
+
+const ACCENT_PRESETS = [
+    { id: 'none', name: '🇮🇩 Indonesia Formal' }, { id: 'gaul', name: '😎 Indo Gaul (Jaksel)' },
+    { id: 'jawa', name: '🟤 Jawa Medok' }, { id: 'sunda', name: '🔵 Sunda Halus' },
+    { id: 'betawi', name: '🟠 Betawi (Jakarta)' }, { id: 'medan', name: '🔴 Batak / Medan' },
+    { id: 'british', name: '🇬🇧 English (British)' }
+];
+
+const ttsVoices = [
+    { id: 'Zephyr', name: 'Zephyr (Pria - Ceria)' }, { id: 'Puck', name: 'Puck (Pria - Santai)' }, 
+    { id: 'Charon', name: 'Charon (Pria - Dalam)' }, { id: 'Kore', name: 'Kore (Wanita - Tegas)' }, 
+    { id: 'Fenrir', name: 'Fenrir (Pria - Semangat)' }, { id: 'Leda', name: 'Leda (Wanita - Muda)' }, 
+    { id: 'Orus', name: 'Orus (Pria - Percaya Diri)' }, { id: 'Aoede', name: 'Aoede (Wanita - Santai)' }, 
+    { id: 'Callirrhoe', name: 'Callirrhoe (Wanita - Lembut)' }, { id: 'Autonoe', name: 'Autonoe (Wanita - Ceria)' }, 
+    { id: 'Enceladus', name: 'Enceladus (Pria - Tenang)' }, { id: 'Iapetus', name: 'Iapetus (Pria - Berat)' }, 
+    { id: 'Umbriel', name: 'Umbriel (Wanita - Kalem)' }, { id: 'Algieba', name: 'Algieba (Pria - Formal)' }, 
+    { id: 'Despina', name: 'Despina (Wanita - Profesional)' }, { id: 'Erinome', name: 'Erinome (Wanita - Ramah)' }, 
+    { id: 'Algenib', name: 'Algenib (Pria - Cepat)' }, { id: 'Rasalgethi', name: 'Rasalgethi (Pria - Serak)' }, 
+    { id: 'Laomedeia', name: 'Laomedeia (Wanita - Energik)' }, { id: 'Achernar', name: 'Achernar (Pria - Jelas)' }, 
+    { id: 'Alnilam', name: 'Alnilam (Pria - Rendah)' }, { id: 'Schedar', name: 'Schedar (Pria - Berwibawa)' }, 
+    { id: 'Gacrux', name: 'Gacrux (Pria - Tua)' }, { id: 'Pulcherrima', name: 'Pulcherrima (Wanita - Elegan)' }, 
+    { id: 'Achird', name: 'Achird (Wanita - Manis)' }, { id: 'Zubenelgenubi', name: 'Zubenelgenubi (Pria - Kasual)' }, 
+    { id: 'Vindemiatrix', name: 'Vindemiatrix (Wanita - Dewasa)' }, { id: 'Sadachbia', name: 'Sadachbia (Pria - Intens)' }, 
+    { id: 'Sadaltager', name: 'Sadaltager (Pria - Santun)' }, { id: 'Sulafat', name: 'Sulafat (Wanita - Ibu)' }
+];
+
+const NEGATIVE_PROMPT_UGC = "morphing face, changing face, changing outfit, eye distortion, bad eyes, weird movement, body clipping, cloth clipping, hands going through body, hands going through clothes, distortion, disfigured, ugly, low quality, pixelated, blur, static, shaky, robotic motion, extra limbs, bad anatomy, floating objects, watermark, text, logo";
+
+// --- CORE UTILS ---
+
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const callWithRetry = async (fn, maxRetries = 5) => {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            const delay = Math.pow(2, i) * 1000;
+            await wait(delay);
+        }
+    }
+    throw lastError;
+};
+
+const secureCopy = (text, onSuccess) => {
+    if (!text) return;
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        const successful = document.execCommand('copy');
+        if (successful && onSuccess) onSuccess();
+    } catch (err) {
+        console.error('Copy failed', err);
+    }
+    document.body.removeChild(textArea);
+};
+
+const pcmToWav = (pcmData, sampleRate = 24000) => {
+    const pcm16 = new Int16Array(pcmData);
+    const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+    const view = new DataView(buffer);
+    const writeString = (offset, string) => { for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i)); };
+    writeString(0, 'RIFF'); view.setUint32(4, 36 + pcm16.length * 2, true); writeString(8, 'WAVE'); writeString(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeString(36, 'data');
+    view.setUint32(40, pcm16.length * 2, true);
+    for (let i = 0; i < pcm16.length; i++) view.setInt16(44 + i * 2, pcm16[i], true);
+    return new Blob([view], { type: 'audio/wav' });
+};
+
+const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+});
+
+const urlToBase64 = async (url) => {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+    });
+};
+
+const downloadHighResImage = (imageUrl, filename, ratio = '9:16') => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = imageUrl;
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const dims = ratio === '9:16' ? [1080, 1920] : ratio === '16:9' ? [1920, 1080] : ratio === '1:1' ? [1080, 1080] : [1080, 1350];
+        canvas.width = dims[0]; canvas.height = dims[1];
+        const ctx = canvas.getContext('2d');
+        const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+        const w = img.width * scale; const h = img.height * scale;
+        ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+    };
+};
+
+// --- API SERVICES ---
+
+const generateText = async (prompt) => {
+    return callWithRetry(async () => {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        if (!res.ok) throw new Error("API Error");
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    });
+};
+
+const generateImageEdit = async (prompt, base64Image, additionalImages = []) => {
+    return callWithRetry(async () => {
+        const parts = [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: base64Image.split(',')[1] } }];
+        additionalImages.forEach(img => {
+            if (img.data) parts.push({ inlineData: { mimeType: 'image/png', data: img.data.split(',')[1] } });
+        });
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE"] } })
+        });
+        if (!res.ok) throw new Error("API Error");
+        const data = await res.json();
+        const base64 = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+        return base64 ? `data:image/png;base64,${base64}` : null;
+    });
+};
+
+const generateTTS = async (text, voice) => {
+    return callWithRetry(async () => {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                contents: [{ parts: [{ text }] }], 
+                generationConfig: { 
+                    responseModalities: ["AUDIO"], 
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } 
+                }, 
+                model: "gemini-2.5-flash-preview-tts" 
+            })
+        });
+        if (!res.ok) throw new Error("API Error");
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+    });
+};
+
+// --- COMPONENTS ---
+
+const StepHeader = ({ number, title, icon: Icon }) => (
+    <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 rounded-full bg-yellow-500 text-slate-900 flex items-center justify-center font-black text-sm shadow-[0_0_15px_rgba(234,179,8,0.4)]">
+            {number}
+        </div>
+        <h3 className="text-white font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+            {title} {Icon && <Icon size={14} className="text-yellow-500" />}
+        </h3>
+    </div>
+);
+
+const ResultCard = ({ item, ratio, productInfo, onRegenerate }) => {
+    const [status, setStatus] = useState(item.loading ? 'loading' : 'ready');
+    const [image, setImage] = useState(item.url);
+    const [activeTab, setActiveTab] = useState(null); // 'edit' | 'motion'
+    const [editPrompt, setEditPrompt] = useState("");
+    const [motionData, setMotionData] = useState(null);
+    const [motionLoading, setMotionLoading] = useState(false);
+    const [selectedMotion, setSelectedMotion] = useState({ cam: MOTION_PRESETS.camera[0], model: MOTION_PRESETS.model[0], style: TALKING_STYLES[0].id });
+
+    useEffect(() => {
+        setImage(item.url);
+        setStatus(item.loading ? 'loading' : 'ready');
+    }, [item.url, item.loading]);
+
+    const handleMagicEdit = async () => {
+        setStatus('loading');
+        try {
+            const currentB64 = await urlToBase64(image);
+            const prompt = `INSTRUCTION: ${editPrompt}. CONTEXT: ${productInfo}. PRESERVE the product identity and the subject's face/outfit structure perfectly. Only change what is requested. High Quality Photorealistic.`;
+            const newUrl = await generateImageEdit(prompt, currentB64);
+            if (newUrl) setImage(newUrl);
+            setActiveTab(null);
+            setEditPrompt("");
+        } catch (e) {
+            console.error(e);
+        }
+        setStatus('ready');
+    };
+
+    const handleGenerateMotion = async () => {
+        setMotionLoading(true);
+        try {
+            const currentB64 = await urlToBase64(image);
+            const prompt = `Act as an AI Video Director. Analyze this image. 
+            Camera: ${selectedMotion.cam}. Subject Action: ${selectedMotion.model}. Talking Style: ${selectedMotion.style}.
+            Create a detailed video prompt for Google Veo/Runway.
+            Output ONLY valid JSON: {"id_prompt": "Prompt Bahasa Indonesia...", "en_prompt": "English Prompt...", "json_params": {...}}`;
+            
+            const result = await callWithRetry(async () => {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: currentB64.split(',')[1] } }] }] 
+                    })
+                });
+                const data = await res.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text;
+            });
+
+            let cleanJson = result.replace(/```json|```/g, '').trim();
+            setMotionData(JSON.parse(cleanJson));
+        } catch (e) {
+            console.error(e);
+        }
+        setMotionLoading(false);
+    };
+
+    return (
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden flex flex-col group transition-all hover:border-yellow-500/50 hover:shadow-[0_0_30px_rgba(234,179,8,0.1)]" style={{ width: ratio === '16:9' ? '480px' : ratio === '1:1' ? '340px' : '280px' }}>
+            <div className="relative w-full overflow-hidden" style={{ aspectRatio: ratio.replace(':', '/') }}>
+                {status === 'loading' ? (
+                    <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-3">
+                        <RefreshCw className="text-yellow-500 animate-spin" size={32} />
+                        <p className="text-[10px] font-black text-yellow-500/50 uppercase tracking-widest animate-pulse">Processing Pixel Data...</p>
+                    </div>
+                ) : image ? (
+                    <>
+                        <img src={image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-end gap-2">
+                            <div className="flex gap-2">
+                                <button onClick={() => downloadHighResImage(image, `GS-UGC-${item.id}.png`, ratio)} className="flex-1 bg-white text-slate-950 text-[10px] font-bold py-2.5 rounded-lg hover:bg-yellow-400 transition-colors">DOWNLOAD HD</button>
+                                <button onClick={() => window.open(image)} className="p-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700"><Maximize2 size={14}/></button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => setActiveTab(activeTab === 'edit' ? null : 'edit')} className={`text-[10px] py-2.5 rounded-lg font-bold border transition-all ${activeTab === 'edit' ? 'bg-yellow-500 border-yellow-500 text-slate-900' : 'bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700'}`}>MAGIC EDIT</button>
+                                <button onClick={() => setActiveTab(activeTab === 'motion' ? null : 'motion')} className={`text-[10px] py-2.5 rounded-lg font-bold border transition-all ${activeTab === 'motion' ? 'bg-purple-500 border-purple-500 text-white' : 'bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700'}`}>MOTION AI</button>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-red-900/20">
+                        <AlertCircle className="text-red-500" size={24} />
+                        <p className="text-[10px] font-bold text-red-500">FAILED TO LOAD</p>
+                        <button onClick={onRegenerate} className="text-[9px] px-3 py-1 bg-red-900/20 text-red-400 rounded-full border border-red-900/40">Try Again</button>
+                    </div>
+                )}
+            </div>
+
+            {activeTab && (
+                <div className="p-4 bg-slate-950 border-t border-slate-800 animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">{activeTab === 'edit' ? 'Magic Editor' : 'Video Prompt Gen'}</span>
+                        <X size={12} className="text-slate-600 hover:text-white cursor-pointer" onClick={() => setActiveTab(null)} />
+                    </div>
+
+                    {activeTab === 'edit' ? (
+                        <div className="flex gap-2">
+                            <input 
+                                value={editPrompt} 
+                                onChange={e => setEditPrompt(e.target.value)}
+                                className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-[11px] text-white focus:border-yellow-500 outline-none" 
+                                placeholder="Change background to city, add lighting..." 
+                            />
+                            <button onClick={handleMagicEdit} className="bg-yellow-600 p-2.5 rounded-lg text-slate-900 hover:bg-yellow-500"><Send size={14}/></button>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-1 gap-2">
+                                <select className="bg-slate-900 border border-slate-800 text-[10px] text-white p-2 rounded-lg outline-none" value={selectedMotion.cam} onChange={e => setSelectedMotion({...selectedMotion, cam: e.target.value})}>
+                                    {MOTION_PRESETS.camera.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <select className="bg-slate-900 border border-slate-800 text-[10px] text-white p-2 rounded-lg outline-none" value={selectedMotion.model} onChange={e => setSelectedMotion({...selectedMotion, model: e.target.value})}>
+                                    {MOTION_PRESETS.model.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                            </div>
+                            <button 
+                                onClick={handleGenerateMotion} 
+                                disabled={motionLoading}
+                                className="w-full bg-purple-600 py-2 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-2 hover:bg-purple-500 disabled:opacity-50"
+                            >
+                                {motionLoading ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                                {motionLoading ? 'ANALYZING...' : 'GENERATE VIDEO PROMPT'}
+                            </button>
+                            {motionData && (
+                                <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                                    <p className="text-[10px] text-slate-400 leading-relaxed mb-3 h-16 overflow-y-auto">{motionData.id_prompt}</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button onClick={() => secureCopy(motionData.id_prompt)} className="bg-slate-800 py-1.5 rounded-md text-[9px] font-bold text-slate-300 flex items-center justify-center gap-1 hover:bg-slate-700"><Copy size={10}/> COPY TXT</button>
+                                        <button onClick={() => secureCopy(JSON.stringify(motionData.json_params, null, 2))} className="bg-slate-800 py-1.5 rounded-md text-[9px] font-bold text-slate-300 flex items-center justify-center gap-1 hover:bg-slate-700"><FileJson size={10}/> COPY JSON</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- MAIN APPLICATION ---
+
+export default function App() {
+    // State
+    const [loading, setLoading] = useState(false);
+    const [mainImage, setMainImage] = useState(null);
+    const [additionalImages, setAdditionalImages] = useState([]);
+    const [productDesc, setProductDesc] = useState("");
+    const [ratio, setRatio] = useState("9:16");
+    const [modelConfig, setModelConfig] = useState({ gender: 'auto', age: 'Dewasa', hijab: false, referenceFaces: [] });
+    const [generatedResults, setGeneratedResults] = useState([]);
+    const [activeStudio, setActiveStudio] = useState(false);
+    const [voData, setVoData] = useState({ script: "", voice: "Zephyr", accent: "none", audioUrl: null, loading: false });
+    const [alert, setAlert] = useState(null);
+
+    const audioRef = useRef(null);
+
+    // Handlers
+    const handleMainUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const b64 = await fileToBase64(file);
+        setMainImage(b64);
+        e.target.value = null;
+    };
+
+    const handleFaceUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const b64 = await fileToBase64(file);
+        if (modelConfig.referenceFaces.length < 2) {
+            setModelConfig({ ...modelConfig, referenceFaces: [...modelConfig.referenceFaces, b64] });
+        }
+        e.target.value = null;
+    };
+
+    const handleAutoDesc = async () => {
+        if (!mainImage) return setAlert("Upload product image first!");
+        setLoading(true);
+        try {
+            const prompt = "Analyze this image. Describe the main product concisely in Indonesian and suggest a trendy UGC concept (e.g., 'A modern woman showing this [Product] in a minimalist cafe').";
+            const text = await callWithRetry(async () => {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: mainImage.split(',')[1] } }] }] 
+                    })
+                });
+                const data = await res.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text;
+            });
+            setProductDesc(text.trim());
+        } catch (e) {
+            setAlert("Failed to generate description.");
+        }
+        setLoading(false);
+    };
+
+    const generateSingleVariation = async (index) => {
+        const genderText = modelConfig.gender === 'auto' ? 'Indonesian person' : modelConfig.gender === 'female' ? 'Indonesian woman' : 'Indonesian man';
+        const hijabInstruction = modelConfig.hijab ? "wearing a stylish modern hijab" : "with natural hair visible, no headscarf";
+        const poseVariations = [
+            "Medium shot, standing naturally holding the product near chest.",
+            "Waist-up shot, 45-degree angle, smiling at the product.",
+            "Close-up of hands and face, showcasing the product clearly."
+        ];
+
+        let finalPrompt = `UGC PHOTO STYLE. (ASPECT RATIO: ${ratio}). Subject: ${genderText}, ${modelConfig.age}, ${hijabInstruction}. 
+        Product Context: ${productDesc}. Concept: ${poseVariations[index]}. 
+        SCENE: Realistic lifestyle setting matching the product. 
+        RULES: 
+        1. Keep product branding and logo exactly as in original image.
+        2. High-end smartphone photography look (UGC style). 
+        3. Realistic lighting and shadows. 
+        4. ABSOLUTELY NO WATERMARKS OR DIGITAL OVERLAYS.
+        5. The subject should be interacting with the product as an owner/reviewer.`;
+
+        if (modelConfig.referenceFaces.length > 0) {
+            finalPrompt += " \n[FACE SWAP]: Use the face structure from provided reference image for the subject.";
+        }
+
+        const additionalParts = modelConfig.referenceFaces.map(f => ({ data: f }));
+        return await generateImageEdit(finalPrompt, mainImage, additionalParts);
+    };
+
+    const handleMainGenerate = async () => {
+        if (!mainImage) return setAlert("Upload product image first!");
+        setLoading(true);
+        setGeneratedResults(Array(3).fill({ loading: true, url: null, id: Date.now() }));
+        
+        try {
+            const results = await Promise.all([0, 1, 2].map(async (idx) => {
+                const url = await generateSingleVariation(idx);
+                return { id: Math.random(), url, loading: false };
+            }));
+            setGeneratedResults(results);
+        } catch (e) {
+            setAlert("Generation failed. Please check your connection.");
+        }
+        setLoading(false);
+    };
+
+    const handleVoiceGen = async () => {
+        if (!voData.script) return setAlert("Please write a script first!");
+        setVoData({ ...voData, loading: true, audioUrl: null });
+        try {
+            const audioB64 = await generateTTS(voData.script, voData.voice);
+            const blob = pcmToWav(new Uint8Array(atob(audioB64).split("").map(c => c.charCodeAt(0))).buffer);
+            setVoData({ ...voData, audioUrl: URL.createObjectURL(blob), loading: false });
+        } catch (e) {
+            setAlert("TTS generation failed.");
+            setVoData({ ...voData, loading: false });
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#020617] text-slate-300 font-sans selection:bg-yellow-500/30 overflow-x-hidden">
+            
+            {/* ALERT MODAL */}
+            {alert && (
+                <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6">
+                    <div className="bg-slate-900 border border-red-500/50 w-full max-w-sm rounded-3xl p-8 text-center shadow-2xl animate-in zoom-in-95 duration-200">
+                        <AlertCircle size={56} className="text-red-500 mx-auto mb-6 opacity-80" />
+                        <h3 className="text-xl font-bold text-white mb-8 tracking-tight">{alert}</h3>
+                        <button onClick={() => setAlert(null)} className="w-full bg-red-600 hover:bg-red-500 text-white py-3.5 rounded-2xl font-black transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]">DISMISS</button>
+                    </div>
+                </div>
+            )}
+
+            {/* NAVBAR */}
+            <nav className="sticky top-0 z-50 bg-[#020617]/80 backdrop-blur-xl border-b border-slate-800/50 px-6 h-20 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-yellow-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(234,179,8,0.4)]">
+                        <Zap size={22} className="text-slate-950" fill="currentColor" />
+                    </div>
+                    <div>
+                        <h1 className="text-white font-black text-xl tracking-tighter leading-none">GREEN <span className="text-yellow-500">SAFIR</span></h1>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">UGC Asset Forge v2.0</p>
+                    </div>
+                </div>
+                <div className="hidden md:flex items-center gap-6">
+                    <button className="text-[11px] font-black text-slate-400 hover:text-white transition-colors uppercase tracking-widest">Tutorial</button>
+                    <button className="text-[11px] font-black text-slate-400 hover:text-white transition-colors uppercase tracking-widest">Pricing</button>
+                    <div className="w-px h-6 bg-slate-800"></div>
+                    <button className="bg-slate-800 p-2.5 rounded-full text-slate-400 hover:text-white transition-all"><Settings size={18}/></button>
+                </div>
+            </nav>
+
+            <main className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-12">
+                
+                {/* LEFT PANEL: CONFIG */}
+                <div className="lg:col-span-5 space-y-8">
+                    
+                    {/* SECTION 1: PRODUCT */}
+                    <div className="bg-slate-900/50 border border-slate-800/50 rounded-[32px] p-8 shadow-inner">
+                        <StepHeader number="1" title="Core Product Data" icon={Upload} />
+                        <div 
+                            className="relative aspect-square bg-slate-950 rounded-3xl border-2 border-dashed border-slate-800 hover:border-yellow-500/50 transition-all flex flex-col items-center justify-center group cursor-pointer overflow-hidden mb-6"
+                            onClick={() => document.getElementById('main-file').click()}
+                        >
+                            {mainImage ? (
+                                <>
+                                    <img src={mainImage} className="w-full h-full object-contain p-6" />
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setMainImage(null); }}
+                                        className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-all"
+                                    ><X size={20}/></button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-yellow-500/10 transition-colors">
+                                        <Upload size={32} className="text-slate-600 group-hover:text-yellow-500 transition-colors" />
+                                    </div>
+                                    <p className="text-xs font-bold text-slate-500 group-hover:text-slate-300">DROP PRODUCT PHOTO</p>
+                                    <p className="text-[9px] text-slate-600 mt-2">JPG/PNG up to 10MB</p>
+                                </>
+                            )}
+                            <input type="file" id="main-file" className="hidden" accept="image/*" onChange={handleMainUpload} />
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center px-1">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Concept Description</label>
+                                <button onClick={handleAutoDesc} disabled={loading || !mainImage} className="text-[10px] font-black text-yellow-500 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-30">
+                                    {loading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />} AUTO-DRAFT
+                                </button>
+                            </div>
+                            <textarea 
+                                value={productDesc}
+                                onChange={e => setProductDesc(e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-sm text-slate-200 focus:border-yellow-500 outline-none h-32 resize-none transition-all placeholder:text-slate-700"
+                                placeholder="Example: Skincare bottle held by an Indonesian woman in a clean, bright bathroom setting..."
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2 px-1">Aspect Ratio</label>
+                                    <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none" value={ratio} onChange={e => setRatio(e.target.value)}>
+                                        <option value="9:16">9:16 - TikTok/Story</option>
+                                        <option value="4:5">4:5 - Feed Portrait</option>
+                                        <option value="1:1">1:1 - Instagram Square</option>
+                                        <option value="16:9">16:9 - YouTube/Broad</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col justify-end">
+                                    <button onClick={() => setAdditionalImages([])} className="text-[9px] font-bold text-slate-600 hover:text-red-400 py-3 flex items-center justify-center gap-2 border border-slate-800/50 rounded-xl transition-all"><Trash2 size={12}/> CLEAR ASSETS</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* SECTION 2: AI MODEL */}
+                    <div className="bg-slate-900/50 border border-slate-800/50 rounded-[32px] p-8 shadow-inner">
+                        <StepHeader number="2" title="Subject Configuration" icon={User} />
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div 
+                                className="aspect-[3/4] bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-yellow-500/50 cursor-pointer relative overflow-hidden"
+                                onClick={() => document.getElementById('face-file').click()}
+                            >
+                                {modelConfig.referenceFaces[0] ? (
+                                    <img src={modelConfig.referenceFaces[0]} className="w-full h-full object-cover" />
+                                ) : (
+                                    <>
+                                        <Plus size={20} className="text-slate-700" />
+                                        <p className="text-[10px] font-black text-slate-600">FACE REF 1</p>
+                                    </>
+                                )}
+                                <input type="file" id="face-file" className="hidden" accept="image/*" onChange={handleFaceUpload} />
+                            </div>
+                            <div className="flex flex-col justify-between">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Target Profile</label>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <select className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] text-white" value={modelConfig.gender} onChange={e => setModelConfig({...modelConfig, gender: e.target.value})}>
+                                            <option value="auto">Auto-Detect</option>
+                                            <option value="female">Wanita</option>
+                                            <option value="male">Pria</option>
+                                        </select>
+                                        <select className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] text-white" value={modelConfig.age} onChange={e => setModelConfig({...modelConfig, age: e.target.value})}>
+                                            <option>Anak-anak</option>
+                                            <option>Remaja</option>
+                                            <option>Dewasa</option>
+                                            <option>Senior</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${modelConfig.hijab ? 'bg-yellow-500 border-yellow-500' : 'bg-slate-950 border-slate-800'}`}>
+                                    <input type="checkbox" className="hidden" checked={modelConfig.hijab} onChange={e => setModelConfig({...modelConfig, hijab: e.target.checked})} />
+                                    <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${modelConfig.hijab ? 'bg-slate-900' : 'bg-slate-800'}`}>
+                                        {modelConfig.hijab && <Check size={14} className="text-yellow-500" />}
+                                    </div>
+                                    <span className={`text-[11px] font-black uppercase tracking-widest ${modelConfig.hijab ? 'text-slate-900' : 'text-slate-500'}`}>Hijab Style</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={handleMainGenerate}
+                        disabled={loading || !mainImage}
+                        className={`w-full py-6 rounded-[24px] font-black text-sm uppercase tracking-[0.2em] shadow-2xl transition-all flex items-center justify-center gap-3 ${loading ? 'bg-slate-800 text-slate-600 cursor-wait' : 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 hover:scale-[1.02] active:scale-95'}`}
+                    >
+                        {loading ? <RefreshCw className="animate-spin" size={20} /> : <Zap size={20} fill="currentColor" />}
+                        {loading ? 'CALCULATING VECTORS...' : 'FORGE UGC ASSETS'}
+                    </button>
+                </div>
+
+                {/* RIGHT PANEL: RESULTS */}
+                <div className="lg:col-span-7 space-y-12">
+                    
+                    {/* ASSET GRID */}
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between border-b border-slate-800/50 pb-4">
+                            <div className="flex items-center gap-3">
+                                <LayoutGrid size={20} className="text-yellow-500" />
+                                <h2 className="text-white font-black text-sm uppercase tracking-[0.2em]">Generated Variations</h2>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-900 px-3 py-1 rounded-full">{generatedResults.length}/3 READY</span>
+                        </div>
+
+                        <div className="flex gap-6 overflow-x-auto pb-8 custom-scrollbar">
+                            {generatedResults.length > 0 ? (
+                                generatedResults.map((item, idx) => (
+                                    <ResultCard 
+                                        key={item.id} 
+                                        item={item} 
+                                        ratio={ratio} 
+                                        productInfo={productDesc} 
+                                        onRegenerate={() => {
+                                            const updated = [...generatedResults];
+                                            updated[idx] = { ...updated[idx], loading: true };
+                                            setGeneratedResults(updated);
+                                            generateSingleVariation(idx).then(url => {
+                                                const final = [...generatedResults];
+                                                final[idx] = { ...final[idx], url, loading: false };
+                                                setGeneratedResults(final);
+                                            });
+                                        }}
+                                    />
+                                ))
+                            ) : (
+                                Array(3).fill(0).map((_, i) => (
+                                    <div 
+                                        key={i} 
+                                        className="shrink-0 bg-slate-900/30 rounded-3xl border-2 border-dashed border-slate-800/50 flex flex-col items-center justify-center gap-4 group hover:border-slate-700 transition-colors"
+                                        style={{ width: ratio === '16:9' ? '480px' : ratio === '1:1' ? '340px' : '280px', aspectRatio: ratio.replace(':', '/') }}
+                                    >
+                                        <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <ImageIcon className="text-slate-800" size={24} />
+                                        </div>
+                                        <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Waiting for Input...</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* STUDIO AREA */}
+                    <div className="bg-slate-900/30 border border-slate-800/50 rounded-[40px] p-10 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 blur-[100px] pointer-events-none"></div>
+                        <div className="flex justify-between items-center cursor-pointer" onClick={() => setActiveStudio(!activeStudio)}>
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-slate-950 rounded-2xl flex items-center justify-center text-yellow-500 border border-slate-800">
+                                    <Mic size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-white font-black text-xl tracking-tight">Audio Studio</h2>
+                                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Multi-Accent Voice Synthesis</p>
+                                </div>
+                            </div>
+                            <div className={`w-10 h-10 rounded-full border border-slate-800 flex items-center justify-center transition-all ${activeStudio ? 'rotate-180 border-yellow-500' : 'rotate-0'}`}>
+                                <ChevronDown size={20} className={activeStudio ? 'text-yellow-500' : 'text-slate-600'} />
+                            </div>
+                        </div>
+
+                        {activeStudio && (
+                            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-10 animate-in fade-in slide-in-from-top-4 duration-500">
+                                <div className="space-y-6">
+                                    <div className="relative">
+                                        <textarea 
+                                            value={voData.script}
+                                            onChange={e => setVoData({...voData, script: e.target.value})}
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-6 text-sm text-slate-300 h-40 resize-none focus:border-yellow-500 outline-none leading-relaxed transition-all placeholder:text-slate-800"
+                                            placeholder="Write your UGC script here. Describe the feelings, the benefits, and a call to action..."
+                                        />
+                                        <div className="absolute bottom-4 right-4 flex items-center gap-3">
+                                            <span className="text-[10px] font-black text-slate-700">{voData.script.length} CHR</span>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Voice Character</label>
+                                            <select className="w-full bg-slate-950 border border-slate-800 text-[11px] font-bold rounded-xl p-3 text-white outline-none" value={voData.voice} onChange={e => setVoData({...voData, voice: e.target.value})}>
+                                                {ttsVoices.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col justify-end">
+                                            <button 
+                                                onClick={handleVoiceGen}
+                                                disabled={voData.loading || !voData.script}
+                                                className="w-full bg-yellow-500 h-[48px] rounded-xl text-slate-950 font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-400 transition-all shadow-[0_0_20px_rgba(234,179,8,0.2)] disabled:opacity-30"
+                                            >
+                                                {voData.loading ? <RefreshCw size={14} className="animate-spin" /> : <Volume2 size={16} />}
+                                                {voData.loading ? 'FORGING...' : 'GENERATE AUDIO'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-950/50 border border-slate-800/50 rounded-3xl p-8 flex flex-col items-center justify-center gap-6 group/play transition-colors hover:border-yellow-500/30">
+                                    {voData.audioUrl ? (
+                                        <>
+                                            <div 
+                                                className="w-24 h-24 rounded-full bg-yellow-500 flex items-center justify-center cursor-pointer shadow-[0_0_30px_rgba(234,179,8,0.3)] hover:scale-110 active:scale-90 transition-all"
+                                                onClick={() => {
+                                                    if (audioRef.current) {
+                                                        audioRef.current.play();
+                                                    } else {
+                                                        audioRef.current = new Audio(voData.audioUrl);
+                                                        audioRef.current.play();
+                                                    }
+                                                }}
+                                            >
+                                                <Play fill="currentColor" size={32} className="text-slate-950 ml-1" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-xs font-black text-white uppercase tracking-[0.2em]">Sample Generated</p>
+                                                <p className="text-[10px] text-slate-500 mt-1">Ready for high-quality export</p>
+                                            </div>
+                                            <a 
+                                                href={voData.audioUrl} 
+                                                download="GreenSafir-VO.wav"
+                                                className="w-full py-3 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black text-slate-400 hover:text-white hover:border-slate-600 text-center transition-all"
+                                            >DOWNLOAD MASTER (.WAV)</a>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="w-20 h-20 rounded-full border-2 border-dashed border-slate-800 flex items-center justify-center opacity-40 group-hover/play:opacity-100 transition-opacity">
+                                                <Music size={32} className="text-slate-700" />
+                                            </div>
+                                            <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest text-center">Audio Preview Component<br/>Idle State</p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
+
+            <footer className="border-t border-slate-900 py-16 px-6">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+                    <div className="flex flex-col items-center md:items-start">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-5 h-5 bg-yellow-500 rounded flex items-center justify-center"><Zap size={12} className="text-slate-950" fill="currentColor"/></div>
+                            <span className="text-white font-black text-xs tracking-tighter">GREEN SAFIR</span>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.3em]">Affiliate Performance Accelerator</p>
+                    </div>
+                    <div className="flex gap-8 text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                        <a href="#" className="hover:text-yellow-500 transition-colors">Documentation</a>
+                        <a href="#" className="hover:text-yellow-500 transition-colors">Privacy</a>
+                        <a href="#" className="hover:text-yellow-500 transition-colors">Support</a>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-tighter">© 2026 GREEN SAFIR INTELLIGENCE</p>
+                </div>
+            </footer>
+
+            {/* Custom Scrollbar Styles */}
+            <style dangerouslySetInnerHTML={{ __html: `
+                .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+                @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+            `}} />
+        </div>
+    );
+}
