@@ -1,818 +1,919 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Upload, Sparkles, Image as ImageIcon, 
-  Plus, User, Settings, Video, Layers, 
-  Download, Copy, X, Wand2, FileText, Mic, Play,
-  Edit, RefreshCw, Maximize2, Volume2, Film, Send, Check, 
-  ChevronDown, MonitorPlay, Zap, LayoutGrid, Music, Globe, AlertCircle, Lock, Trash2, FileJson
-} from 'lucide-react';
-
-// --- API CONFIGURATION ---
-const apiKey = "";
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'green-safir-ugc';
-
-// --- DATA PRESETS ---
-const MOTION_PRESETS = {
-  model: [
-    "Natural and light movement (General)", 
-    "Relaxed pose with small hand gestures (Fashion)",
-    "Soft, controlled body movement (Fashion)", 
-    "Subtle clothing adjustment (Fashion)",
-    "Slow pose transition (Fashion)", 
-    "Head follows body naturally (Portrait)",
-    "Micro-steps movement (Full Body)", 
-    "Pointing or touching product (Promo)",
-    "Slight head tilt (Beauty)", 
-    "Natural breathing motion",
-    "Eating/Tasting movement (F&B)",
-    "Drinking/Sipping movement (Beverage)",
-    "Applying cream to face/hands (Skincare)",
-    "Showing product texture (Texture Show)",
-    "Typing/Scrolling screen (Interaction)",
-    "Unboxing style movement (Gadget)"
-  ],
-  camera: [
-    "Static eye-level camera", 
-    "Slow push-in (Zoom in)", 
-    "Slow pull-back (Zoom out)",
-    "Smooth side-to-side slide (Truck)", 
-    "Light handheld stability (Vlog Style)", 
-    "Subtle tilt-up (Reveal)", 
-    "Subtle tilt-down", 
-    "Micro-pan 5-10 degrees", 
-    "Subtle breathing motion",
-    "Tracking Shot (Backward) - Model Forward",
-    "Orbit/Arc Shot (Circular)",
-    "Fast Zoom (Dramatic)",
-    "Top-Down Moving (Flatlay)",
-    "Low Angle (Hero Shot)",
-    "FPV Drone Style (Dynamic)"
-  ]
-};
-
-const TALKING_STYLES = [
-    { id: 'silent', name: 'Diam (Silent/No Talk)' },
-    { id: 'casual', name: 'Ngobrol Santai (Casual Vlog)' },
-    { id: 'soft', name: 'Review Lembut (Soft Spoken)' },
-    { id: 'excited', name: 'Promosi Semangat (Excited)' },
-    { id: 'story', name: 'Bercerita (Storytelling)' }
-];
-
-const ACCENT_PRESETS = [
-    { id: 'none', name: '🇮🇩 Indonesia Formal' }, { id: 'gaul', name: '😎 Indo Gaul (Jaksel)' },
-    { id: 'jawa', name: '🟤 Jawa Medok' }, { id: 'sunda', name: '🔵 Sunda Halus' },
-    { id: 'betawi', name: '🟠 Betawi (Jakarta)' }, { id: 'medan', name: '🔴 Batak / Medan' },
-    { id: 'british', name: '🇬🇧 English (British)' }
-];
-
-const ttsVoices = [
-    { id: 'Zephyr', name: 'Zephyr (Pria - Ceria)' }, { id: 'Puck', name: 'Puck (Pria - Santai)' }, 
-    { id: 'Charon', name: 'Charon (Pria - Dalam)' }, { id: 'Kore', name: 'Kore (Wanita - Tegas)' }, 
-    { id: 'Fenrir', name: 'Fenrir (Pria - Semangat)' }, { id: 'Leda', name: 'Leda (Wanita - Muda)' }, 
-    { id: 'Orus', name: 'Orus (Pria - Percaya Diri)' }, { id: 'Aoede', name: 'Aoede (Wanita - Santai)' }, 
-    { id: 'Callirrhoe', name: 'Callirrhoe (Wanita - Lembut)' }, { id: 'Autonoe', name: 'Autonoe (Wanita - Ceria)' }, 
-    { id: 'Enceladus', name: 'Enceladus (Pria - Tenang)' }, { id: 'Iapetus', name: 'Iapetus (Pria - Berat)' }, 
-    { id: 'Umbriel', name: 'Umbriel (Wanita - Kalem)' }, { id: 'Algieba', name: 'Algieba (Pria - Formal)' }, 
-    { id: 'Despina', name: 'Despina (Wanita - Profesional)' }, { id: 'Erinome', name: 'Erinome (Wanita - Ramah)' }, 
-    { id: 'Algenib', name: 'Algenib (Pria - Cepat)' }, { id: 'Rasalgethi', name: 'Rasalgethi (Pria - Serak)' }, 
-    { id: 'Laomedeia', name: 'Laomedeia (Wanita - Energik)' }, { id: 'Achernar', name: 'Achernar (Pria - Jelas)' }, 
-    { id: 'Alnilam', name: 'Alnilam (Pria - Rendah)' }, { id: 'Schedar', name: 'Schedar (Pria - Berwibawa)' }, 
-    { id: 'Gacrux', name: 'Gacrux (Pria - Tua)' }, { id: 'Pulcherrima', name: 'Pulcherrima (Wanita - Elegan)' }, 
-    { id: 'Achird', name: 'Achird (Wanita - Manis)' }, { id: 'Zubenelgenubi', name: 'Zubenelgenubi (Pria - Kasual)' }, 
-    { id: 'Vindemiatrix', name: 'Vindemiatrix (Wanita - Dewasa)' }, { id: 'Sadachbia', name: 'Sadachbia (Pria - Intens)' }, 
-    { id: 'Sadaltager', name: 'Sadaltager (Pria - Santun)' }, { id: 'Sulafat', name: 'Sulafat (Wanita - Ibu)' }
-];
-
-const NEGATIVE_PROMPT_UGC = "morphing face, changing face, changing outfit, eye distortion, bad eyes, weird movement, body clipping, cloth clipping, hands going through body, hands going through clothes, distortion, disfigured, ugly, low quality, pixelated, blur, static, shaky, robotic motion, extra limbs, bad anatomy, floating objects, watermark, text, logo";
-
-// --- CORE UTILS ---
-
-const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const callWithRetry = async (fn, maxRetries = 5) => {
-    let lastError;
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            return await fn();
-        } catch (error) {
-            lastError = error;
-            const delay = Math.pow(2, i) * 1000;
-            await wait(delay);
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator UGC GS</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX Compilation -->
+    <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
         }
-    }
-    throw lastError;
-};
 
-const secureCopy = (text, onSuccess) => {
-    if (!text) return;
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-9999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-        const successful = document.execCommand('copy');
-        if (successful && onSuccess) onSuccess();
-    } catch (err) {
-        console.error('Copy failed', err);
-    }
-    document.body.removeChild(textArea);
-};
-
-const pcmToWav = (pcmData, sampleRate = 24000) => {
-    const pcm16 = new Int16Array(pcmData);
-    const buffer = new ArrayBuffer(44 + pcm16.length * 2);
-    const view = new DataView(buffer);
-    const writeString = (offset, string) => { for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i)); };
-    writeString(0, 'RIFF'); view.setUint32(4, 36 + pcm16.length * 2, true); writeString(8, 'WAVE'); writeString(12, 'fmt ');
-    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeString(36, 'data');
-    view.setUint32(40, pcm16.length * 2, true);
-    for (let i = 0; i < pcm16.length; i++) view.setInt16(44 + i * 2, pcm16[i], true);
-    return new Blob([view], { type: 'audio/wav' });
-};
-
-const fileToBase64 = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-});
-
-const urlToBase64 = async (url) => {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-    });
-};
-
-const downloadHighResImage = (imageUrl, filename, ratio = '9:16') => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = imageUrl;
-    img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const dims = ratio === '9:16' ? [1080, 1920] : ratio === '16:9' ? [1920, 1080] : ratio === '1:1' ? [1080, 1080] : [1080, 1350];
-        canvas.width = dims[0]; canvas.height = dims[1];
-        const ctx = canvas.getContext('2d');
-        const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
-        const w = img.width * scale; const h = img.height * scale;
-        ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = canvas.toDataURL('image/png', 1.0);
-        link.click();
-    };
-};
-
-// --- API SERVICES ---
-
-const generateText = async (prompt) => {
-    return callWithRetry(async () => {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        if (!res.ok) throw new Error("API Error");
-        const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    });
-};
-
-const generateImageEdit = async (prompt, base64Image, additionalImages = []) => {
-    return callWithRetry(async () => {
-        const parts = [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: base64Image.split(',')[1] } }];
-        additionalImages.forEach(img => {
-            if (img.data) parts.push({ inlineData: { mimeType: 'image/png', data: img.data.split(',')[1] } });
-        });
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE"] } })
-        });
-        if (!res.ok) throw new Error("API Error");
-        const data = await res.json();
-        const base64 = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-        return base64 ? `data:image/png;base64,${base64}` : null;
-    });
-};
-
-const generateTTS = async (text, voice) => {
-    return callWithRetry(async () => {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                contents: [{ parts: [{ text }] }], 
-                generationConfig: { 
-                    responseModalities: ["AUDIO"], 
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } 
-                }, 
-                model: "gemini-2.5-flash-preview-tts" 
-            })
-        });
-        if (!res.ok) throw new Error("API Error");
-        const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
-    });
-};
-
-// --- COMPONENTS ---
-
-const StepHeader = ({ number, title, icon: Icon }) => (
-    <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 rounded-full bg-yellow-500 text-slate-900 flex items-center justify-center font-black text-sm shadow-[0_0_15px_rgba(234,179,8,0.4)]">
-            {number}
-        </div>
-        <h3 className="text-white font-bold text-sm uppercase tracking-widest flex items-center gap-2">
-            {title} {Icon && <Icon size={14} className="text-yellow-500" />}
-        </h3>
-    </div>
-);
-
-const ResultCard = ({ item, ratio, productInfo, onRegenerate }) => {
-    const [status, setStatus] = useState(item.loading ? 'loading' : 'ready');
-    const [image, setImage] = useState(item.url);
-    const [activeTab, setActiveTab] = useState(null); // 'edit' | 'motion'
-    const [editPrompt, setEditPrompt] = useState("");
-    const [motionData, setMotionData] = useState(null);
-    const [motionLoading, setMotionLoading] = useState(false);
-    const [selectedMotion, setSelectedMotion] = useState({ cam: MOTION_PRESETS.camera[0], model: MOTION_PRESETS.model[0], style: TALKING_STYLES[0].id });
-
-    useEffect(() => {
-        setImage(item.url);
-        setStatus(item.loading ? 'loading' : 'ready');
-    }, [item.url, item.loading]);
-
-    const handleMagicEdit = async () => {
-        setStatus('loading');
-        try {
-            const currentB64 = await urlToBase64(image);
-            const prompt = `INSTRUCTION: ${editPrompt}. CONTEXT: ${productInfo}. PRESERVE the product identity and the subject's face/outfit structure perfectly. Only change what is requested. High Quality Photorealistic.`;
-            const newUrl = await generateImageEdit(prompt, currentB64);
-            if (newUrl) setImage(newUrl);
-            setActiveTab(null);
-            setEditPrompt("");
-        } catch (e) {
-            console.error(e);
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
         }
-        setStatus('ready');
-    };
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #eab308;
+        }
 
-    const handleGenerateMotion = async () => {
-        setMotionLoading(true);
-        try {
-            const currentB64 = await urlToBase64(image);
-            const prompt = `Act as an AI Video Director. Analyze this image. 
-            Camera: ${selectedMotion.cam}. Subject Action: ${selectedMotion.model}. Talking Style: ${selectedMotion.style}.
-            Create a detailed video prompt for Google Veo/Runway.
-            Output ONLY valid JSON: {"id_prompt": "Prompt Bahasa Indonesia...", "en_prompt": "English Prompt...", "json_params": {...}}`;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, createElement } = React;
+        
+        /**
+         * Helper untuk mengonversi ikon Lucide menjadi Komponen React
+         */
+        const LucideIcon = ({ name, size = 24, className = "", color = "currentColor", strokeWidth = 2, fill = "none" }) => {
+            const iconRef = useRef(null);
+
+            useEffect(() => {
+                if (iconRef.current && window.lucide) {
+                    iconRef.current.innerHTML = '';
+                    const svgMarkup = window.lucide.icons[name];
+                    if (svgMarkup) {
+                        const svgElem = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                        svgElem.setAttribute("width", size);
+                        svgElem.setAttribute("height", size);
+                        svgElem.setAttribute("viewBox", "0 0 24 24");
+                        svgElem.setAttribute("fill", fill);
+                        svgElem.setAttribute("stroke", color);
+                        svgElem.setAttribute("stroke-width", strokeWidth);
+                        svgElem.setAttribute("stroke-linecap", "round");
+                        svgElem.setAttribute("stroke-linejoin", "round");
+                        svgElem.setAttribute("class", `lucide lucide-${name} ${className}`);
+                        
+                        svgElem.innerHTML = svgMarkup[1].map(tag => {
+                            const [tagName, attrs] = tag;
+                            const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
+                            return `<${tagName} ${attrStr}></${tagName}>`;
+                        }).join('');
+                        
+                        iconRef.current.appendChild(svgElem);
+                    }
+                }
+            }, [name, size, className, color, strokeWidth, fill]);
+
+            return <span ref={iconRef} className="inline-flex items-center justify-center"></span>;
+        };
+
+        const Icons = {
+            Upload: (props) => <LucideIcon name="upload" {...props} />,
+            Sparkles: (props) => <LucideIcon name="sparkles" {...props} />,
+            ImageIcon: (props) => <LucideIcon name="image" {...props} />,
+            Plus: (props) => <LucideIcon name="plus" {...props} />,
+            User: (props) => <LucideIcon name="user" {...props} />,
+            Settings: (props) => <LucideIcon name="settings" {...props} />,
+            Video: (props) => <LucideIcon name="video" {...props} />,
+            Layers: (props) => <LucideIcon name="layers" {...props} />,
+            Download: (props) => <LucideIcon name="download" {...props} />,
+            Copy: (props) => <LucideIcon name="copy" {...props} />,
+            X: (props) => <LucideIcon name="x" {...props} />,
+            Wand2: (props) => <LucideIcon name="wand-2" {...props} />,
+            FileText: (props) => <LucideIcon name="file-text" {...props} />,
+            Mic: (props) => <LucideIcon name="mic" {...props} />,
+            Play: (props) => <LucideIcon name="play" {...props} />,
+            Edit: (props) => <LucideIcon name="edit" {...props} />,
+            RefreshCw: (props) => <LucideIcon name="refresh-cw" {...props} />,
+            Maximize2: (props) => <LucideIcon name="maximize-2" {...props} />,
+            Volume2: (props) => <LucideIcon name="volume-2" {...props} />,
+            Film: (props) => <LucideIcon name="film" {...props} />,
+            Send: (props) => <LucideIcon name="send" {...props} />,
+            Check: (props) => <LucideIcon name="check" {...props} />,
+            ChevronDown: (props) => <LucideIcon name="chevron-down" {...props} />,
+            MonitorPlay: (props) => <LucideIcon name="monitor-play" {...props} />,
+            Zap: (props) => <LucideIcon name="zap" {...props} />,
+            LayoutGrid: (props) => <LucideIcon name="layout-grid" {...props} />,
+            Music: (props) => <LucideIcon name="music" {...props} />,
+            Globe: (props) => <LucideIcon name="globe" {...props} />,
+            AlertCircle: (props) => <LucideIcon name="alert-circle" {...props} />,
+            Lock: (props) => <LucideIcon name="lock" {...props} />,
+            Trash2: (props) => <LucideIcon name="trash-2" {...props} />,
+            FileJson: (props) => <LucideIcon name="file-json" {...props} />
+        };
+
+        const apiKey = ""; 
+
+        const MOTION_PRESETS = {
+          model: [
+            "Gerakan natural dan ringan (General)", 
+            "Pose santai dengan gestur tangan kecil (Fashion)",
+            "Pergerakan tubuh lembut dan terkontrol (Fashion)", 
+            "Perbaiki pakaian secara halus (Fashion)",
+            "Ganti pose secara perlahan (Fashion)", 
+            "Gerakan kepala mengikuti tubuh (Portrait)",
+            "Micro-steps natural (Full Body)", 
+            "Gestur menunjuk atau menyentuh produk (Promo)",
+            "Arahkan wajah sedikit ke kanan/kiri (Beauty)", 
+            "Gerakan napas natural (Chest rise/fall)",
+            "Gerakan Makan/Menggigit (Food Tasting)",
+            "Gerakan Minum/Sipping (Beverage)",
+            "Menunjukkan Isi/Tekstur Makanan (Food Detail)",
+            "Ekspresi Menikmati 'Yummy' (Reaction)",
+            "Menuang Air/Saus (Pouring Motion)",
+            "Mengoleskan Krim ke Wajah/Tangan (Application)",
+            "Menunjukkan Tekstur Produk di Jari (Texture Show)",
+            "Memegang Botol di Samping Wajah (Comparison)",
+            "Mencium Aroma Produk (Scent)",
+            "Mengetik/Scroll Layar (Interaction)",
+            "Membuka Laptop/Gadget (Unboxing style)",
+            "Menggunakan Alat/Mesin (Active Use)",
+            "Duduk/Menaiki Kendaraan/Alat (Riding/Sitting)",
+            "Memegang Produk dengan Stabil (Tech Showcase)"
+          ],
+          camera: [
+            "Kamera statis eye-level", 
+            "Push-in pelan (Mendekat)", 
+            "Pull-back pelan (Menjauh)",
+            "Slide kanan–kiri halus (Truck)", 
+            "Handheld ringan stabil (Vlog Style)", 
+            "Tilt-up lembut (Reveal)", 
+            "Tilt-down lembut", 
+            "Micro-pan 5–10 derajat", 
+            "Breathing motion subtle",
+            "Tracking Shot (Mundur) - Model Maju",
+            "Orbit/Arc Shot (Mengelilingi Objek)",
+            "Zoom Cepat (Dramatis/Impact)",
+            "Top-Down Moving (Flatlay Video)",
+            "Low Angle (Hero Shot/Megah)",
+            "FPV Drone Style (Dinamis Cepat)"
+          ]
+        };
+
+        const TALKING_STYLES = [
+            { id: 'silent', name: 'Diam (Silent/No Talk)' },
+            { id: 'casual', name: 'Ngobrol Santai (Casual Vlog)' },
+            { id: 'soft', name: 'Review Lembut (Soft Spoken)' },
+            { id: 'excited', name: 'Promosi Semangat (Excited)' },
+            { id: 'story', name: 'Bercerita (Storytelling)' }
+        ];
+
+        const ACCENT_PRESETS = [
+            { id: 'none', name: '🇮🇩 Indonesia Formal' }, { id: 'gaul', name: '😎 Indo Gaul (Jaksel)' },
+            { id: 'jawa', name: '🟤 Jawa Medok' }, { id: 'sunda', name: '🔵 Sunda Halus' },
+            { id: 'betawi', name: '🟠 Betawi (Jakarta)' }, { id: 'medan', name: '🔴 Batak / Medan' },
+            { id: 'minang', name: '🟡 Minang / Padang' }, { id: 'papua', name: '🟢 Papua' },
+            { id: 'bali', name: '🟣 Bali' }, { id: 'makassar', name: '🟤 Makassar / Bugis' },
+            { id: 'manado', name: '🔵 Manado' }, { id: 'madura', name: '🔴 Madura' },
+            { id: 'palembang', name: '🟡 Palembang' }, { id: 'banjar', name: '🟠 Banjar' },
+            { id: 'aceh', name: '🟢 Aceh' }, { id: 'maluku', name: '🟣 Maluku / Ambon' },
+            { id: 'lombok', name: '🟤 Lombok / Sasak' }, { id: 'banyumasan', name: '🔴 Jawa Ngapak' },
+            { id: 'melayu', name: '🟡 Melayu Riau' }, { id: 'dayak', name: '🟢 Dayak' },
+            { id: 'lampung', name: '🟠 Lampung' }, { id: 'british', name: '🇬🇧 English (British)' }
+        ];
+
+        const ttsVoices = [
+            { id: 'Zephyr', name: 'Zephyr (Pria - Ceria)' }, { id: 'Puck', name: 'Puck (Pria - Santai)' }, 
+            { id: 'Charon', name: 'Charon (Pria - Dalam)' }, { id: 'Kore', name: 'Kore (Wanita - Tegas)' }, 
+            { id: 'Fenrir', name: 'Fenrir (Pria - Semangat)' }, { id: 'Leda', name: 'Leda (Wanita - Muda)' }, 
+            { id: 'Orus', name: 'Orus (Pria - Percaya Diri)' }, { id: 'Aoede', name: 'Aoede (Wanita - Santai)' }, 
+            { id: 'Callirrhoe', name: 'Callirrhoe (Wanita - Lembut)' }, { id: 'Autonoe', name: 'Autonoe (Wanita - Ceria)' }, 
+            { id: 'Enceladus', name: 'Enceladus (Pria - Tenang)' }, { id: 'Iapetus', name: 'Iapetus (Pria - Berat)' }, 
+            { id: 'Umbriel', name: 'Umbriel (Wanita - Kalem)' }, { id: 'Algieba', name: 'Algieba (Pria - Formal)' }, 
+            { id: 'Despina', name: 'Despina (Wanita - Profesional)' }, { id: 'Erinome', name: 'Erinome (Wanita - Ramah)' }, 
+            { id: 'Algenib', name: 'Algenib (Pria - Cepat)' }, { id: 'Rasalgethi', name: 'Rasalgethi (Pria - Serak)' }, 
+            { id: 'Laomedeia', name: 'Laomedeia (Wanita - Energik)' }, { id: 'Achernar', name: 'Achernar (Pria - Jelas)' }, 
+            { id: 'Alnilam', name: 'Alnilam (Pria - Rendah)' }, { id: 'Schedar', name: 'Schedar (Pria - Berwibawa)' }, 
+            { id: 'Gacrux', name: 'Gacrux (Pria - Tua)' }, { id: 'Pulcherrima', name: 'Pulcherrima (Wanita - Elegan)' }, 
+            { id: 'Achird', name: 'Achird (Wanita - Manis)' }, { id: 'Zubenelgenubi', name: 'Zubenelgenubi (Pria - Kasual)' }, 
+            { id: 'Vindemiatrix', name: 'Vindemiatrix (Wanita - Dewasa)' }, { id: 'Sadachbia', name: 'Sadachbia (Pria - Intens)' }, 
+            { id: 'Sadaltager', name: 'Sadaltager (Pria - Santun)' }, { id: 'Sulafat', name: 'Sulafat (Wanita - Ibu)' }
+        ];
+
+        const NEGATIVE_PROMPT_UGC = "morphing face, changing face, changing outfit, eye distortion, bad eyes, weird movement, body clipping, cloth clipping, hands going through body, hands going through clothes, distortion, disfigured, ugly, low quality, pixelated, blur, static, shaky, robotic motion, cartoon, illustration, 3d render, extra limbs, bad anatomy, floating objects, unnatural physics, watermark, text, logo";
+
+        const downloadHighResImage = (imageUrl, filename, targetRatioStr = '9:16') => {
+          const img = new Image();
+          img.crossOrigin = "anonymous"; 
+          img.src = imageUrl;
+          
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
             
-            const result = await callWithRetry(async () => {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: currentB64.split(',')[1] } }] }] 
-                    })
-                });
-                const data = await res.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text;
+            let targetW, targetH;
+            switch(targetRatioStr) {
+                case '1:1': targetW = 1080; targetH = 1080; break;
+                case '4:5': targetW = 1080; targetH = 1350; break;
+                case '16:9': targetW = 1920; targetH = 1080; break;
+                case '9:16': default: targetW = 1080; targetH = 1920; break;
+            }
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            const scale = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+            const w = img.naturalWidth * scale;
+            const h = img.naturalHeight * scale;
+            const x = (canvas.width - w) / 2;
+            const y = (canvas.height - h) / 2;
+
+            ctx.drawImage(img, x, y, w, h);
+            
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png', 1.0); 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          };
+        };
+
+        const secureCopy = (text, onSuccess) => {
+          if (!text) return;
+          try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            if (successful && onSuccess) onSuccess();
+          } catch (err) { console.error('Copy failed', err); }
+        };
+
+        const compressImage = (file, maxWidth = 1024, quality = 0.8) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) { if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; } } 
+                    else { if (height > maxWidth) { width *= maxWidth / height; height = maxWidth; } }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = (error) => reject(error);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+
+        const fileToBase64 = async (file) => {
+            if (!file) return null;
+            if (file.type.match(/image.*/)) { try { return await compressImage(file); } catch (e) { console.error(e); } }
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (error) => reject(error);
             });
+        };
 
-            let cleanJson = result.replace(/```json|```/g, '').trim();
-            setMotionData(JSON.parse(cleanJson));
-        } catch (e) {
-            console.error(e);
-        }
-        setMotionLoading(false);
-    };
+        const urlToBase64 = async (url) => {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            } catch { return null; }
+        };
 
-    return (
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden flex flex-col group transition-all hover:border-yellow-500/50 hover:shadow-[0_0_30px_rgba(234,179,8,0.1)]" style={{ width: ratio === '16:9' ? '480px' : ratio === '1:1' ? '340px' : '280px' }}>
-            <div className="relative w-full overflow-hidden" style={{ aspectRatio: ratio.replace(':', '/') }}>
-                {status === 'loading' ? (
-                    <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-3">
-                        <RefreshCw className="text-yellow-500 animate-spin" size={32} />
-                        <p className="text-[10px] font-black text-yellow-500/50 uppercase tracking-widest animate-pulse">Processing Pixel Data...</p>
-                    </div>
-                ) : image ? (
-                    <>
-                        <img src={image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-end gap-2">
-                            <div className="flex gap-2">
-                                <button onClick={() => downloadHighResImage(image, `GS-UGC-${item.id}.png`, ratio)} className="flex-1 bg-white text-slate-950 text-[10px] font-bold py-2.5 rounded-lg hover:bg-yellow-400 transition-colors">DOWNLOAD HD</button>
-                                <button onClick={() => window.open(image)} className="p-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700"><Maximize2 size={14}/></button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button onClick={() => setActiveTab(activeTab === 'edit' ? null : 'edit')} className={`text-[10px] py-2.5 rounded-lg font-bold border transition-all ${activeTab === 'edit' ? 'bg-yellow-500 border-yellow-500 text-slate-900' : 'bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700'}`}>MAGIC EDIT</button>
-                                <button onClick={() => setActiveTab(activeTab === 'motion' ? null : 'motion')} className={`text-[10px] py-2.5 rounded-lg font-bold border transition-all ${activeTab === 'motion' ? 'bg-purple-500 border-purple-500 text-white' : 'bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700'}`}>MOTION AI</button>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-red-900/20">
-                        <AlertCircle className="text-red-500" size={24} />
-                        <p className="text-[10px] font-bold text-red-500">FAILED TO LOAD</p>
-                        <button onClick={onRegenerate} className="text-[9px] px-3 py-1 bg-red-900/20 text-red-400 rounded-full border border-red-900/40">Try Again</button>
-                    </div>
-                )}
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        const base64ToArrayBuffer = (base64) => {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+            return bytes.buffer;
+        };
+
+        const pcmToWav = (pcmData, sampleRate = 24000) => {
+            const pcm16 = new Int16Array(pcmData);
+            const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+            const view = new DataView(buffer);
+            const writeString = (offset, string) => { for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i)); };
+            writeString(0, 'RIFF'); view.setUint32(4, 36 + pcm16.length * 2, true); writeString(8, 'WAVE'); writeString(12, 'fmt ');
+            view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeString(36, 'data');
+            view.setUint32(40, pcm16.length * 2, true);
+            for (let i = 0; i < pcm16.length; i++) view.setInt16(44 + i * 2, pcm16[i], true);
+            return new Blob([view], { type: 'audio/wav' });
+        };
+
+        const callApi = async (payload, isText = false) => {
+            const targetModel = isText ? "gemini-2.5-flash-preview-09-2025" : "gemini-2.5-flash-image-preview";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+            
+            for(let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                    if (!res.ok) {
+                        if (res.status === 429 || res.status >= 500) {
+                            await wait(500 * (attempt + 1));
+                            continue; 
+                        }
+                        throw new Error(`API Error: ${res.status}`);
+                    }
+                    const data = await res.json();
+                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                         await wait(500);
+                         continue;
+                    }
+                    if(isText) return data.candidates[0].content.parts[0].text;
+                    const imgData = data.candidates[0].content.parts.find(p => p.inlineData);
+                    if (imgData) return `data:image/png;base64,${imgData.inlineData.data}`;
+                } catch(e) {
+                    if (attempt === 2) return null;
+                    await wait(500);
+                }
+            }
+            return null;
+        };
+
+        const callTtsApi = async (payload) => {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if (!res.ok) throw new Error(`API Error: ${res.status}`);
+            const data = await res.json();
+            if (!data.candidates?.[0]) throw new Error("Gagal membuat suara.");
+            const part = data.candidates[0].content.parts[0];
+            return { audioData: part.inlineData.data, sampleRate: 24000 }; 
+        };
+
+        const generateImageToImageAPI = async (prompt, base64Image, additionalImages = []) => {
+          const parts = [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: base64Image.split(',')[1] } }];
+          additionalImages.forEach(img => { 
+              if (img.data) parts.push({ inlineData: { mimeType: 'image/png', data: img.data.split(',')[1] } }); 
+          });
+          try {
+            const payload = { contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE"] } };
+            return await callApi(payload, false);
+          } catch (e) { return null; }
+        };
+
+        const StepPanel = ({ number, title, icon: IconComponent, children }) => (
+          <div className="bg-slate-900 border-2 border-yellow-500 rounded-xl overflow-hidden mb-6 shadow-sm shadow-yellow-500/10 hover:border-yellow-400 transition-colors">
+            <div className="px-5 py-4 border-b border-yellow-500/30 bg-slate-950/50 flex items-center gap-3">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-600 text-white font-bold text-sm font-mono shadow-md shadow-yellow-500/20">
+                {number}
+              </div>
+              <div className="flex-1 text-slate-100 font-semibold text-sm uppercase tracking-wide flex items-center gap-2">
+                  {title} {IconComponent && <IconComponent size={14} className="text-yellow-400" />}
+              </div>
             </div>
+            <div className="p-5 space-y-5 relative">
+               {children}
+            </div>
+          </div>
+        );
 
-            {activeTab && (
-                <div className="p-4 bg-slate-950 border-t border-slate-800 animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex justify-between items-center mb-3">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">{activeTab === 'edit' ? 'Magic Editor' : 'Video Prompt Gen'}</span>
-                        <X size={12} className="text-slate-600 hover:text-white cursor-pointer" onClick={() => setActiveTab(null)} />
-                    </div>
+        const ResultCard = ({ item, onViewImage, productInfo, selectedRatio, onRegenerate }) => {
+          const [image, setImage] = useState(item.url);
+          const [loading, setLoading] = useState(item.loading);
+          const [showEdit, setShowEdit] = useState(false);
+          const [editPrompt, setEditPrompt] = useState("");
+          const [showMotion, setShowMotion] = useState(false);
+          
+          const [motionText, setMotionText] = useState("");
+          const [motionData, setMotionData] = useState(null); 
+          const [isMotionLoading, setIsMotionLoading] = useState(false);
+          const [copyStatus, setCopyStatus] = useState("Salin Teks");
+          const [copyStatusJson, setCopyStatusJson] = useState("Salin JSON");
+          const [motionLang, setMotionLang] = useState('ID');
+          const [selectedCamMove, setSelectedCamMove] = useState(MOTION_PRESETS.camera[0]);
+          const [selectedModelMove, setSelectedModelMove] = useState(MOTION_PRESETS.model[0]);
+          const [selectedTalkingStyle, setSelectedTalkingStyle] = useState(TALKING_STYLES[0].id);
 
-                    {activeTab === 'edit' ? (
-                        <div className="flex gap-2">
-                            <input 
-                                value={editPrompt} 
-                                onChange={e => setEditPrompt(e.target.value)}
-                                className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-[11px] text-white focus:border-yellow-500 outline-none" 
-                                placeholder="Change background to city, add lighting..." 
-                            />
-                            <button onClick={handleMagicEdit} className="bg-yellow-600 p-2.5 rounded-lg text-slate-900 hover:bg-yellow-500"><Send size={14}/></button>
+          useEffect(() => { setImage(item.url); setLoading(item.loading); }, [item]);
+
+          useEffect(() => {
+            if (motionData) {
+                setMotionText(motionLang === 'ID' ? motionData.text_id : motionData.text_en);
+            }
+          }, [motionLang, motionData]);
+
+          const getAspectRatioStyle = () => {
+              switch (selectedRatio) {
+                  case '9:16': return { aspectRatio: '9/16' };
+                  case '4:5': return { aspectRatio: '4/5' };
+                  case '1:1': return { aspectRatio: '1/1' };
+                  case '16:9': return { aspectRatio: '16/9' };
+                  default: return { aspectRatio: '9/16' };
+              }
+          };
+
+          const handleRegenerate = async () => {
+            const promptToUse = editPrompt 
+                ? `EDIT INSTRUCTION: ${editPrompt}. \nCONTEXT: ${productInfo}. \nRULES: \n1. PRESERVE the product/subject identity exactly. \n2. ONLY change the specific action/pose/element requested. \n3. IF user asks to USE/RIDE an object (like bike/motor), model must be interacting properly (sitting on it, etc), NOT lifting it. \n4. IF user asks to change pose, ensure background remains consistent unless asked to change. \n5. CRITICAL: KEEP PRODUCT LOGO/BRANDING. REMOVE DIGITAL WATERMARKS/OVERLAY TEXT. \nKualitas: Shot on Sony A7R IV, 8k, Photorealistic.`
+                : "Buat ulang gambar ini dengan variasi berbeda. High quality.";
+
+            setLoading(true);
+            try {
+                const currentBase64 = image ? await urlToBase64(image) : null; 
+                if (currentBase64) {
+                     const newUrl = await generateImageToImageAPI(promptToUse, currentBase64);
+                     if (newUrl) { setImage(newUrl); setShowEdit(false); setEditPrompt(""); }
+                }
+            } catch(e) {}
+            setLoading(false);
+          };
+
+          const handleMotion = async (force = false) => {
+            if(!force && motionData) return; 
+            setIsMotionLoading(true);
+            setCopyStatus("Salin Teks");
+            setCopyStatusJson("Salin JSON");
+
+            try {
+                const currentBase64 = await urlToBase64(image);
+                const prompt = `Bertindaklah sebagai Director Video AI. Analisis gambar ini (kategori: ${item.category}).
+                1. DETEKSI SUBJEK: Cek Gender (Pria/Wanita), Jumlah Orang, Pakaian, dan Wajah. Sesuaikan deskripsi subject dengan fakta visual ini.
+                2. Gerakan Kamera: "${selectedCamMove}"
+                3. Gerakan Subjek: "${selectedModelMove}"
+                4. Gaya Bicara: "${TALKING_STYLES.find(t=>t.id===selectedTalkingStyle).name}"
+                
+                Tugas: Buat prompt video AI (Google Veo/Flow/Runway/Kling) yang PADAT, JELAS, dan LANGSUNG KE VISUAL.
+                Wajib berikan output HANYA dalam format JSON valid (tanpa markdown).`;
+
+                const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: currentBase64.split(',')[1] } }] }] };
+                const textResponse = await callApi(payload, true); 
+                
+                let jsonStr = textResponse.trim();
+                if (jsonStr.startsWith('```json')) {
+                    jsonStr = jsonStr.replace(/^```json/, '').replace(/```$/, '');
+                } else if (jsonStr.startsWith('```')) {
+                    jsonStr = jsonStr.replace(/^```/, '').replace(/```$/, '');
+                }
+                
+                try {
+                    const parsedData = JSON.parse(jsonStr);
+                    setMotionData(parsedData);
+                    setMotionText(motionLang === 'ID' ? parsedData.text_id : parsedData.text_en);
+                } catch (parseError) {
+                    setMotionText(textResponse);
+                    setMotionData({ text_id: textResponse, text_en: "Error", structured_json: { error: "Failed to parse" }});
+                }
+            } catch(e) { setMotionText("Gagal koneksi ke AI."); }
+            setIsMotionLoading(false);
+          };
+
+          const handleCopyText = () => {
+              secureCopy(motionText, () => {
+                  setCopyStatus("Tersalin! ✅");
+                  setTimeout(() => setCopyStatus("Salin Teks"), 2000);
+              });
+          };
+
+          const handleCopyJson = () => {
+              if (motionData && motionData.structured_json) {
+                  const jsonString = JSON.stringify(motionData.structured_json, null, 2);
+                  secureCopy(jsonString, () => {
+                      setCopyStatusJson("JSON Tersalin! ✅");
+                      setTimeout(() => setCopyStatusJson("Salin JSON"), 2000);
+                  });
+              }
+          };
+
+          return (
+            <div className="shrink-0 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden group relative flex flex-col shadow-lg shadow-yellow-500/20" 
+                 style={{ width: selectedRatio === '16:9' ? '460px' : selectedRatio === '1:1' ? '340px' : '280px' }}>
+                
+                <div className="relative bg-slate-900 w-full" style={getAspectRatioStyle()}>
+                     {!loading && image && (
+                       <button onClick={(e) => { e.stopPropagation(); onRegenerate(); }}
+                         className="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full flex items-center justify-center text-white transition-all z-50 shadow-sm cursor-pointer"
+                         title="Regenerate This Image"
+                       >
+                         <Icons.RefreshCw size={14} />
+                       </button>
+                     )}
+
+                    {loading ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-2">
+                            <Icons.RefreshCw className="animate-spin" size={24}/>
+                            <span className="text-xs font-mono animate-pulse">GENERATING...</span>
                         </div>
-                    ) : (
-                        <div className="space-y-3">
-                            <div className="grid grid-cols-1 gap-2">
-                                <select className="bg-slate-900 border border-slate-800 text-[10px] text-white p-2 rounded-lg outline-none" value={selectedMotion.cam} onChange={e => setSelectedMotion({...selectedMotion, cam: e.target.value})}>
-                                    {MOTION_PRESETS.camera.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
-                                <select className="bg-slate-900 border border-slate-800 text-[10px] text-white p-2 rounded-lg outline-none" value={selectedMotion.model} onChange={e => setSelectedMotion({...selectedMotion, model: e.target.value})}>
-                                    {MOTION_PRESETS.model.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
-                            </div>
-                            <button 
-                                onClick={handleGenerateMotion} 
-                                disabled={motionLoading}
-                                className="w-full bg-purple-600 py-2 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-2 hover:bg-purple-500 disabled:opacity-50"
-                            >
-                                {motionLoading ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                                {motionLoading ? 'ANALYZING...' : 'GENERATE VIDEO PROMPT'}
-                            </button>
-                            {motionData && (
-                                <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
-                                    <p className="text-[10px] text-slate-400 leading-relaxed mb-3 h-16 overflow-y-auto">{motionData.id_prompt}</p>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <button onClick={() => secureCopy(motionData.id_prompt)} className="bg-slate-800 py-1.5 rounded-md text-[9px] font-bold text-slate-300 flex items-center justify-center gap-1 hover:bg-slate-700"><Copy size={10}/> COPY TXT</button>
-                                        <button onClick={() => secureCopy(JSON.stringify(motionData.json_params, null, 2))} className="bg-slate-800 py-1.5 rounded-md text-[9px] font-bold text-slate-300 flex items-center justify-center gap-1 hover:bg-slate-700"><FileJson size={10}/> COPY JSON</button>
-                                    </div>
+                    ) : image ? (
+                        <>
+                            <img src={image} className="w-full h-full object-cover" onClick={() => onViewImage(image)}/>
+                            <div className="absolute top-2 left-2 bg-black/60 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold text-yellow-400 uppercase border border-white/10">{item.category}</div>
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 gap-2">
+                                <div className="flex gap-2">
+                                    <button onClick={() => downloadHighResImage(image, `result-${item.id}.png`, selectedRatio)} className="flex-1 bg-white text-black text-[10px] font-bold py-2 rounded hover:bg-slate-200">DOWNLOAD HD</button>
+                                    <button onClick={() => onViewImage(image)} className="p-2 bg-slate-700 text-white rounded"><Icons.Maximize2 size={14}/></button>
                                 </div>
-                            )}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button onClick={() => {setShowEdit(!showEdit); setShowMotion(false);}} className={`text-white text-[10px] py-2 rounded font-medium ${showEdit ? 'bg-yellow-600' : 'bg-slate-700 hover:bg-slate-600'}`}>EDIT</button>
+                                    <button onClick={() => {setShowMotion(!showMotion); setShowEdit(false); if(!motionData) handleMotion(true);}} className={`text-white text-[10px] py-2 rounded font-medium ${showMotion ? 'bg-purple-600' : 'bg-slate-700 hover:bg-slate-600'}`}>MOTION</button>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-red-500 gap-2 bg-slate-950 border-2 border-red-900/30 border-dashed rounded-lg">
+                            <Icons.AlertCircle size={24}/>
+                            <span className="text-xs font-bold">GAGAL GENERATE</span>
+                            <button onClick={onRegenerate} className="text-[10px] bg-red-900/50 hover:bg-red-900 text-red-200 px-3 py-1 rounded border border-red-800 transition-colors z-50 relative">Coba Lagi</button>
                         </div>
                     )}
                 </div>
-            )}
-        </div>
-    );
-};
-
-// --- MAIN APPLICATION ---
-
-export default function App() {
-    // State
-    const [loading, setLoading] = useState(false);
-    const [mainImage, setMainImage] = useState(null);
-    const [additionalImages, setAdditionalImages] = useState([]);
-    const [productDesc, setProductDesc] = useState("");
-    const [ratio, setRatio] = useState("9:16");
-    const [modelConfig, setModelConfig] = useState({ gender: 'auto', age: 'Dewasa', hijab: false, referenceFaces: [] });
-    const [generatedResults, setGeneratedResults] = useState([]);
-    const [activeStudio, setActiveStudio] = useState(false);
-    const [voData, setVoData] = useState({ script: "", voice: "Zephyr", accent: "none", audioUrl: null, loading: false });
-    const [alert, setAlert] = useState(null);
-
-    const audioRef = useRef(null);
-
-    // Handlers
-    const handleMainUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const b64 = await fileToBase64(file);
-        setMainImage(b64);
-        e.target.value = null;
-    };
-
-    const handleFaceUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const b64 = await fileToBase64(file);
-        if (modelConfig.referenceFaces.length < 2) {
-            setModelConfig({ ...modelConfig, referenceFaces: [...modelConfig.referenceFaces, b64] });
-        }
-        e.target.value = null;
-    };
-
-    const handleAutoDesc = async () => {
-        if (!mainImage) return setAlert("Upload product image first!");
-        setLoading(true);
-        try {
-            const prompt = "Analyze this image. Describe the main product concisely in Indonesian and suggest a trendy UGC concept (e.g., 'A modern woman showing this [Product] in a minimalist cafe').";
-            const text = await callWithRetry(async () => {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: mainImage.split(',')[1] } }] }] 
-                    })
-                });
-                const data = await res.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text;
-            });
-            setProductDesc(text.trim());
-        } catch (e) {
-            setAlert("Failed to generate description.");
-        }
-        setLoading(false);
-    };
-
-    const generateSingleVariation = async (index) => {
-        const genderText = modelConfig.gender === 'auto' ? 'Indonesian person' : modelConfig.gender === 'female' ? 'Indonesian woman' : 'Indonesian man';
-        const hijabInstruction = modelConfig.hijab ? "wearing a stylish modern hijab" : "with natural hair visible, no headscarf";
-        const poseVariations = [
-            "Medium shot, standing naturally holding the product near chest.",
-            "Waist-up shot, 45-degree angle, smiling at the product.",
-            "Close-up of hands and face, showcasing the product clearly."
-        ];
-
-        let finalPrompt = `UGC PHOTO STYLE. (ASPECT RATIO: ${ratio}). Subject: ${genderText}, ${modelConfig.age}, ${hijabInstruction}. 
-        Product Context: ${productDesc}. Concept: ${poseVariations[index]}. 
-        SCENE: Realistic lifestyle setting matching the product. 
-        RULES: 
-        1. Keep product branding and logo exactly as in original image.
-        2. High-end smartphone photography look (UGC style). 
-        3. Realistic lighting and shadows. 
-        4. ABSOLUTELY NO WATERMARKS OR DIGITAL OVERLAYS.
-        5. The subject should be interacting with the product as an owner/reviewer.`;
-
-        if (modelConfig.referenceFaces.length > 0) {
-            finalPrompt += " \n[FACE SWAP]: Use the face structure from provided reference image for the subject.";
-        }
-
-        const additionalParts = modelConfig.referenceFaces.map(f => ({ data: f }));
-        return await generateImageEdit(finalPrompt, mainImage, additionalParts);
-    };
-
-    const handleMainGenerate = async () => {
-        if (!mainImage) return setAlert("Upload product image first!");
-        setLoading(true);
-        setGeneratedResults(Array(3).fill({ loading: true, url: null, id: Date.now() }));
-        
-        try {
-            const results = await Promise.all([0, 1, 2].map(async (idx) => {
-                const url = await generateSingleVariation(idx);
-                return { id: Math.random(), url, loading: false };
-            }));
-            setGeneratedResults(results);
-        } catch (e) {
-            setAlert("Generation failed. Please check your connection.");
-        }
-        setLoading(false);
-    };
-
-    const handleVoiceGen = async () => {
-        if (!voData.script) return setAlert("Please write a script first!");
-        setVoData({ ...voData, loading: true, audioUrl: null });
-        try {
-            const audioB64 = await generateTTS(voData.script, voData.voice);
-            const blob = pcmToWav(new Uint8Array(atob(audioB64).split("").map(c => c.charCodeAt(0))).buffer);
-            setVoData({ ...voData, audioUrl: URL.createObjectURL(blob), loading: false });
-        } catch (e) {
-            setAlert("TTS generation failed.");
-            setVoData({ ...voData, loading: false });
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-[#020617] text-slate-300 font-sans selection:bg-yellow-500/30 overflow-x-hidden">
-            
-            {/* ALERT MODAL */}
-            {alert && (
-                <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6">
-                    <div className="bg-slate-900 border border-red-500/50 w-full max-w-sm rounded-3xl p-8 text-center shadow-2xl animate-in zoom-in-95 duration-200">
-                        <AlertCircle size={56} className="text-red-500 mx-auto mb-6 opacity-80" />
-                        <h3 className="text-xl font-bold text-white mb-8 tracking-tight">{alert}</h3>
-                        <button onClick={() => setAlert(null)} className="w-full bg-red-600 hover:bg-red-500 text-white py-3.5 rounded-2xl font-black transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]">DISMISS</button>
-                    </div>
-                </div>
-            )}
-
-            {/* NAVBAR */}
-            <nav className="sticky top-0 z-50 bg-[#020617]/80 backdrop-blur-xl border-b border-slate-800/50 px-6 h-20 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-yellow-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(234,179,8,0.4)]">
-                        <Zap size={22} className="text-slate-950" fill="currentColor" />
-                    </div>
-                    <div>
-                        <h1 className="text-white font-black text-xl tracking-tighter leading-none">GREEN <span className="text-yellow-500">SAFIR</span></h1>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">UGC Asset Forge v2.0</p>
-                    </div>
-                </div>
-                <div className="hidden md:flex items-center gap-6">
-                    <button className="text-[11px] font-black text-slate-400 hover:text-white transition-colors uppercase tracking-widest">Tutorial</button>
-                    <button className="text-[11px] font-black text-slate-400 hover:text-white transition-colors uppercase tracking-widest">Pricing</button>
-                    <div className="w-px h-6 bg-slate-800"></div>
-                    <button className="bg-slate-800 p-2.5 rounded-full text-slate-400 hover:text-white transition-all"><Settings size={18}/></button>
-                </div>
-            </nav>
-
-            <main className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-12">
                 
-                {/* LEFT PANEL: CONFIG */}
-                <div className="lg:col-span-5 space-y-8">
-                    
-                    {/* SECTION 1: PRODUCT */}
-                    <div className="bg-slate-900/50 border border-slate-800/50 rounded-[32px] p-8 shadow-inner">
-                        <StepHeader number="1" title="Core Product Data" icon={Upload} />
-                        <div 
-                            className="relative aspect-square bg-slate-950 rounded-3xl border-2 border-dashed border-slate-800 hover:border-yellow-500/50 transition-all flex flex-col items-center justify-center group cursor-pointer overflow-hidden mb-6"
-                            onClick={() => document.getElementById('main-file').click()}
-                        >
-                            {mainImage ? (
-                                <>
-                                    <img src={mainImage} className="w-full h-full object-contain p-6" />
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); setMainImage(null); }}
-                                        className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-all"
-                                    ><X size={20}/></button>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-yellow-500/10 transition-colors">
-                                        <Upload size={32} className="text-slate-600 group-hover:text-yellow-500 transition-colors" />
-                                    </div>
-                                    <p className="text-xs font-bold text-slate-500 group-hover:text-slate-300">DROP PRODUCT PHOTO</p>
-                                    <p className="text-[9px] text-slate-600 mt-2">JPG/PNG up to 10MB</p>
-                                </>
-                            )}
-                            <input type="file" id="main-file" className="hidden" accept="image/*" onChange={handleMainUpload} />
+                {(showEdit || showMotion) && !loading && image && (
+                    <div className="p-3 bg-slate-900 border-t border-slate-800 w-full animate-in">
+                        <div className="flex justify-between mb-2 items-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{showEdit ? "Magic Edit" : "Video Prompt"}</span>
+                            <button onClick={() => {setShowEdit(false); setShowMotion(false);}}><Icons.X size={12} className="text-slate-500 hover:text-white"/></button>
                         </div>
-
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center px-1">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Concept Description</label>
-                                <button onClick={handleAutoDesc} disabled={loading || !mainImage} className="text-[10px] font-black text-yellow-500 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-30">
-                                    {loading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />} AUTO-DRAFT
-                                </button>
+                        
+                        {showEdit && (
+                            <div className="flex gap-2">
+                                <input value={editPrompt} onChange={e=>setEditPrompt(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-2 text-[10px] text-white focus:border-yellow-500 outline-none" placeholder="Contoh: Ubah background..."/>
+                                <button onClick={handleRegenerate} className="bg-yellow-600 p-2 rounded text-white hover:bg-yellow-500"><Icons.Send size={12}/></button>
                             </div>
-                            <textarea 
-                                value={productDesc}
-                                onChange={e => setProductDesc(e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-sm text-slate-200 focus:border-yellow-500 outline-none h-32 resize-none transition-all placeholder:text-slate-700"
-                                placeholder="Example: Skincare bottle held by an Indonesian woman in a clean, bright bathroom setting..."
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2 px-1">Aspect Ratio</label>
-                                    <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none" value={ratio} onChange={e => setRatio(e.target.value)}>
-                                        <option value="9:16">9:16 - TikTok/Story</option>
-                                        <option value="4:5">4:5 - Feed Portrait</option>
-                                        <option value="1:1">1:1 - Instagram Square</option>
-                                        <option value="16:9">16:9 - YouTube/Broad</option>
-                                    </select>
-                                </div>
-                                <div className="flex flex-col justify-end">
-                                    <button onClick={() => setAdditionalImages([])} className="text-[9px] font-bold text-slate-600 hover:text-red-400 py-3 flex items-center justify-center gap-2 border border-slate-800/50 rounded-xl transition-all"><Trash2 size={12}/> CLEAR ASSETS</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* SECTION 2: AI MODEL */}
-                    <div className="bg-slate-900/50 border border-slate-800/50 rounded-[32px] p-8 shadow-inner">
-                        <StepHeader number="2" title="Subject Configuration" icon={User} />
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div 
-                                className="aspect-[3/4] bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-yellow-500/50 cursor-pointer relative overflow-hidden"
-                                onClick={() => document.getElementById('face-file').click()}
-                            >
-                                {modelConfig.referenceFaces[0] ? (
-                                    <img src={modelConfig.referenceFaces[0]} className="w-full h-full object-cover" />
-                                ) : (
-                                    <>
-                                        <Plus size={20} className="text-slate-700" />
-                                        <p className="text-[10px] font-black text-slate-600">FACE REF 1</p>
-                                    </>
-                                )}
-                                <input type="file" id="face-file" className="hidden" accept="image/*" onChange={handleFaceUpload} />
-                            </div>
-                            <div className="flex flex-col justify-between">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Target Profile</label>
-                                    <div className="grid grid-cols-1 gap-2">
-                                        <select className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] text-white" value={modelConfig.gender} onChange={e => setModelConfig({...modelConfig, gender: e.target.value})}>
-                                            <option value="auto">Auto-Detect</option>
-                                            <option value="female">Wanita</option>
-                                            <option value="male">Pria</option>
-                                        </select>
-                                        <select className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] text-white" value={modelConfig.age} onChange={e => setModelConfig({...modelConfig, age: e.target.value})}>
-                                            <option>Anak-anak</option>
-                                            <option>Remaja</option>
-                                            <option>Dewasa</option>
-                                            <option>Senior</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${modelConfig.hijab ? 'bg-yellow-500 border-yellow-500' : 'bg-slate-950 border-slate-800'}`}>
-                                    <input type="checkbox" className="hidden" checked={modelConfig.hijab} onChange={e => setModelConfig({...modelConfig, hijab: e.target.checked})} />
-                                    <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${modelConfig.hijab ? 'bg-slate-900' : 'bg-slate-800'}`}>
-                                        {modelConfig.hijab && <Check size={14} className="text-yellow-500" />}
-                                    </div>
-                                    <span className={`text-[11px] font-black uppercase tracking-widest ${modelConfig.hijab ? 'text-slate-900' : 'text-slate-500'}`}>Hijab Style</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button 
-                        onClick={handleMainGenerate}
-                        disabled={loading || !mainImage}
-                        className={`w-full py-6 rounded-[24px] font-black text-sm uppercase tracking-[0.2em] shadow-2xl transition-all flex items-center justify-center gap-3 ${loading ? 'bg-slate-800 text-slate-600 cursor-wait' : 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 hover:scale-[1.02] active:scale-95'}`}
-                    >
-                        {loading ? <RefreshCw className="animate-spin" size={20} /> : <Zap size={20} fill="currentColor" />}
-                        {loading ? 'CALCULATING VECTORS...' : 'FORGE UGC ASSETS'}
-                    </button>
-                </div>
-
-                {/* RIGHT PANEL: RESULTS */}
-                <div className="lg:col-span-7 space-y-12">
-                    
-                    {/* ASSET GRID */}
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between border-b border-slate-800/50 pb-4">
-                            <div className="flex items-center gap-3">
-                                <LayoutGrid size={20} className="text-yellow-500" />
-                                <h2 className="text-white font-black text-sm uppercase tracking-[0.2em]">Generated Variations</h2>
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-900 px-3 py-1 rounded-full">{generatedResults.length}/3 READY</span>
-                        </div>
-
-                        <div className="flex gap-6 overflow-x-auto pb-8 custom-scrollbar">
-                            {generatedResults.length > 0 ? (
-                                generatedResults.map((item, idx) => (
-                                    <ResultCard 
-                                        key={item.id} 
-                                        item={item} 
-                                        ratio={ratio} 
-                                        productInfo={productDesc} 
-                                        onRegenerate={() => {
-                                            const updated = [...generatedResults];
-                                            updated[idx] = { ...updated[idx], loading: true };
-                                            setGeneratedResults(updated);
-                                            generateSingleVariation(idx).then(url => {
-                                                const final = [...generatedResults];
-                                                final[idx] = { ...final[idx], url, loading: false };
-                                                setGeneratedResults(final);
-                                            });
-                                        }}
-                                    />
-                                ))
-                            ) : (
-                                Array(3).fill(0).map((_, i) => (
-                                    <div 
-                                        key={i} 
-                                        className="shrink-0 bg-slate-900/30 rounded-3xl border-2 border-dashed border-slate-800/50 flex flex-col items-center justify-center gap-4 group hover:border-slate-700 transition-colors"
-                                        style={{ width: ratio === '16:9' ? '480px' : ratio === '1:1' ? '340px' : '280px', aspectRatio: ratio.replace(':', '/') }}
-                                    >
-                                        <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                            <ImageIcon className="text-slate-800" size={24} />
-                                        </div>
-                                        <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Waiting for Input...</p>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* STUDIO AREA */}
-                    <div className="bg-slate-900/30 border border-slate-800/50 rounded-[40px] p-10 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 blur-[100px] pointer-events-none"></div>
-                        <div className="flex justify-between items-center cursor-pointer" onClick={() => setActiveStudio(!activeStudio)}>
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-slate-950 rounded-2xl flex items-center justify-center text-yellow-500 border border-slate-800">
-                                    <Mic size={24} />
-                                </div>
-                                <div>
-                                    <h2 className="text-white font-black text-xl tracking-tight">Audio Studio</h2>
-                                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Multi-Accent Voice Synthesis</p>
-                                </div>
-                            </div>
-                            <div className={`w-10 h-10 rounded-full border border-slate-800 flex items-center justify-center transition-all ${activeStudio ? 'rotate-180 border-yellow-500' : 'rotate-0'}`}>
-                                <ChevronDown size={20} className={activeStudio ? 'text-yellow-500' : 'text-slate-600'} />
-                            </div>
-                        </div>
-
-                        {activeStudio && (
-                            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-10 animate-in fade-in slide-in-from-top-4 duration-500">
-                                <div className="space-y-6">
-                                    <div className="relative">
-                                        <textarea 
-                                            value={voData.script}
-                                            onChange={e => setVoData({...voData, script: e.target.value})}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-6 text-sm text-slate-300 h-40 resize-none focus:border-yellow-500 outline-none leading-relaxed transition-all placeholder:text-slate-800"
-                                            placeholder="Write your UGC script here. Describe the feelings, the benefits, and a call to action..."
-                                        />
-                                        <div className="absolute bottom-4 right-4 flex items-center gap-3">
-                                            <span className="text-[10px] font-black text-slate-700">{voData.script.length} CHR</span>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Voice Character</label>
-                                            <select className="w-full bg-slate-950 border border-slate-800 text-[11px] font-bold rounded-xl p-3 text-white outline-none" value={voData.voice} onChange={e => setVoData({...voData, voice: e.target.value})}>
-                                                {ttsVoices.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="flex flex-col justify-end">
-                                            <button 
-                                                onClick={handleVoiceGen}
-                                                disabled={voData.loading || !voData.script}
-                                                className="w-full bg-yellow-500 h-[48px] rounded-xl text-slate-950 font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-yellow-400 transition-all shadow-[0_0_20px_rgba(234,179,8,0.2)] disabled:opacity-30"
-                                            >
-                                                {voData.loading ? <RefreshCw size={14} className="animate-spin" /> : <Volume2 size={16} />}
-                                                {voData.loading ? 'FORGING...' : 'GENERATE AUDIO'}
+                        )}
+                        
+                        {showMotion && (
+                            <div className="space-y-3">
+                                 <div className="flex justify-end gap-1 mb-1">
+                                     <button onClick={() => setMotionLang('ID')} className={`text-[9px] px-2 py-0.5 rounded border ${motionLang === 'ID' ? 'bg-yellow-600 border-yellow-600 text-white' : 'bg-transparent border-slate-700 text-slate-500'}`}>IND</button>
+                                     <button onClick={() => setMotionLang('EN')} className={`text-[9px] px-2 py-0.5 rounded border ${motionLang === 'EN' ? 'bg-yellow-600 border-yellow-600 text-white' : 'bg-transparent border-slate-700 text-slate-500'}`}>ENG</button>
+                                 </div>
+                                 <div className="space-y-2">
+                                     <select className="w-full bg-slate-950 border border-slate-700 text-[10px] text-white rounded px-2 py-1 outline-none" value={selectedCamMove} onChange={e=>setSelectedCamMove(e.target.value)}>
+                                         {MOTION_PRESETS.camera.map(m => <option key={m} value={m}>{m}</option>)}
+                                     </select>
+                                     <select className="w-full bg-slate-950 border border-slate-700 text-[10px] text-white rounded px-2 py-1 outline-none" value={selectedModelMove} onChange={e=>setSelectedModelMove(e.target.value)}>
+                                         {MOTION_PRESETS.model.map(m => <option key={m} value={m}>{m}</option>)}
+                                     </select>
+                                     <select className="w-full bg-slate-950 border border-slate-700 text-[10px] text-white rounded px-2 py-1 outline-none" value={selectedTalkingStyle} onChange={e=>setSelectedTalkingStyle(e.target.value)}>
+                                         {TALKING_STYLES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                     </select>
+                                 </div>
+                                 <button onClick={() => handleMotion(true)} disabled={isMotionLoading} className="w-full bg-purple-600 hover:bg-purple-500 text-white text-[10px] py-1.5 rounded flex items-center justify-center gap-2 font-bold">
+                                    {isMotionLoading ? <Icons.RefreshCw size={10} className="animate-spin"/> : <Icons.RefreshCw size={10}/>}
+                                    {isMotionLoading ? "Menganalisis..." : "Buat Ulang Prompt"}
+                                 </button>
+                                 <div className="bg-black/30 p-2 rounded border border-slate-800">
+                                     <div className="text-[9px] text-slate-300 h-20 overflow-y-auto custom-scrollbar mb-2 leading-relaxed whitespace-pre-wrap">
+                                         {motionText || "Klik tombol untuk membuat prompt..."}
+                                     </div>
+                                     {motionText && (
+                                        <div className="grid grid-cols-2 gap-2 mt-2">
+                                            <button onClick={handleCopyText} className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] py-1.5 rounded border border-slate-700 flex items-center justify-center gap-1">
+                                                <Icons.Copy size={10}/> {copyStatus}
+                                            </button>
+                                            <button onClick={handleCopyJson} className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] py-1.5 rounded border border-slate-700 flex items-center justify-center gap-1">
+                                                <Icons.FileJson size={10}/> {copyStatusJson}
                                             </button>
                                         </div>
+                                     )}
+                                 </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+          );
+        };
+
+        const App = () => {
+          const [loading, setLoading] = useState(false);
+          const [resultsReady, setResultsReady] = useState(false);
+          const [isStudioOpen, setIsStudioOpen] = useState(false); 
+          const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+          const [alertMessage, setAlertMessage] = useState(null);
+          
+          const [mainPhoto, setMainPhoto] = useState(null); 
+          const [mainPhotoFile, setMainPhotoFile] = useState(null);
+          const [additionalPhotos, setAdditionalPhotos] = useState([]); 
+          const [productInfo, setProductInfo] = useState('');
+          
+          const [models, setModels] = useState([]);
+          const [aiModelConfig, setAiModelConfig] = useState({ gender: 'auto', age: 'Remaja', hijab: false });
+          const [ratio, setRatio] = useState('9:16'); 
+          
+          const [generatedImages, setGeneratedImages] = useState({ ugc: [] });
+          const [viewImageUrl, setViewImageUrl] = useState(null);
+          const [showRecModal, setShowRecModal] = useState(false);
+
+          const [voState, setVoState] = useState({ script: "", audioUrl: null, loadingScript: false, loadingAudio: false, isPlaying: false, category: 'ugc', voice: 'Zephyr', accent: 'none' });
+          const audioRef = useRef(null);
+
+          const allPrompts = {
+            ugc: [
+              "UGC. Medium Shot (Waist Up). Front View. Clear focus on subject.",
+              "UGC. Medium Shot. Slightly Angled View (3/4). Natural look.",
+              "UGC. Knee-Up Shot. Front View. Full outfit visible."
+            ]
+          };
+
+          const showAlert = (msg) => setAlertMessage(msg);
+
+          const handlePhotoUpload = (e, type) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            if (type === 'main') { setMainPhoto(url); setMainPhotoFile(file); }
+            else if (type === 'model') { if (models.length < 2) setModels([...models, {id: Date.now(), url, file, styleDesc: ''}]); }
+            e.target.value = null;
+          };
+
+          const updateModelDesc = (id, text) => setModels(prev => prev.map(m => m.id === id ? { ...m, styleDesc: text } : m));
+          const handleRemoveAdditional = (id) => setAdditionalPhotos(prev => prev.filter(p => p.id !== id));
+
+          const handleApplyRecommendation = async () => {
+            if (!mainPhotoFile) return showAlert("Upload foto produk dulu!");
+            setIsGeneratingDesc(true);
+            try {
+                const b64 = await fileToBase64(mainPhotoFile);
+                const prompt = "Analisis gambar ini. Identifikasi produk. Buat 1 kalimat deskripsi menarik & konsep foto estetik. Bahasa Indonesia.";
+                const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/png', data: b64.split(',')[1] } }] }] };
+                const text = await callApi(payload, true);
+                setProductInfo(text.trim());
+                setShowRecModal(false); 
+            } catch (e) { showAlert("Gagal."); } finally { setIsGeneratingDesc(false); }
+          };
+
+          const handleSingleRegenerate = async (category, index) => {
+              setGeneratedImages(prev => {
+                  const catItems = [...prev[category]];
+                  catItems[index] = { ...catItems[index], loading: true };
+                  return { ...prev, [category]: catItems };
+              });
+              try {
+                  const base64Main = await fileToBase64(mainPhotoFile);
+                  const modelImagesData = [];
+                  for(let m of models) { const b64 = await fileToBase64(m.file); modelImagesData.push({ data: b64 }); }
+                  const supportingImagesData = [];
+                  for(let p of additionalPhotos) { if (p.file) { const b64 = await fileToBase64(p.file); supportingImagesData.push({ data: b64 }); } }
+
+                  const promptBase = allPrompts[category][index];
+                  const ratioMap = { '9:16': 'Vertical 9:16', '4:5': 'Vertical Feed 4:5', '1:1': 'Square 1:1', '16:9': 'Landscape 16:9' };
+                  let fullPrompt = `(ASPECT RATIO: ${ratioMap[ratio] || '9:16'}). Produk: ${productInfo}. ${promptBase}`;
+
+                  if (models.length > 0) fullPrompt += " FACE SWAP: Use uploaded references.";
+                  else fullPrompt += ` MODEL AI: ${aiModelConfig.gender}, ${aiModelConfig.age}.`;
+
+                  const url = await generateImageToImageAPI(fullPrompt, base64Main, [...modelImagesData, ...supportingImagesData]);
+                  setGeneratedImages(prev => {
+                      const catItems = [...prev[category]];
+                      catItems[index] = { ...catItems[index], url: url, loading: false, id: Date.now() }; 
+                      return { ...prev, [category]: catItems };
+                  });
+              } catch(e) {
+                  setGeneratedImages(prev => {
+                      const catItems = [...prev[category]];
+                      catItems[index] = { ...catItems[index], loading: false };
+                      return { ...prev, [category]: catItems };
+                  });
+              }
+          };
+
+          const runGenerationProcess = async () => {
+            setLoading(true); setResultsReady(true);
+            const init = (cat) => Array(3).fill(0).map((_,i) => ({ id: Math.random(), url: '', category: cat, loading: true }));
+            setGeneratedImages({ ugc: init('ugc') });
+            try {
+                const base64Main = await fileToBase64(mainPhotoFile);
+                const modelImagesData = [];
+                for(let m of models) { const b64 = await fileToBase64(m.file); modelImagesData.push({ data: b64 }); }
+                const supportingImagesData = [];
+                for(let p of additionalPhotos) { if (p.file) { const b64 = await fileToBase64(p.file); supportingImagesData.push({ data: b64 }); } }
+                
+                const promptList = allPrompts.ugc;
+                const promises = promptList.map(async (pBase, idx) => {
+                    await wait(idx * 200); 
+                    const ratioMap = { '9:16': 'Vertical 9:16', '4:5': 'Vertical Feed 4:5', '1:1': 'Square 1:1', '16:9': 'Landscape 16:9' };
+                    let fullPrompt = `(ASPECT RATIO: ${ratioMap[ratio] || '9:16'}). Produk: ${productInfo}. ${pBase}`;
+                    const url = await generateImageToImageAPI(fullPrompt, base64Main, [...modelImagesData, ...supportingImagesData]);
+                    setGeneratedImages(prev => {
+                        const list = [...prev.ugc]; list[idx] = { ...list[idx], url: url, loading: false }; 
+                        return { ...prev, ugc: list };
+                    });
+                });
+                await Promise.all(promises);
+            } catch(e) { console.error(e); }
+            setLoading(false);
+          };
+          
+          const handleGenerateButton = () => {
+            if (!mainPhotoFile) return showAlert("Upload foto produk utama dulu ya!");
+            if (!productInfo.trim()) { setShowRecModal(true); return; }
+            runGenerationProcess();
+          };
+
+          const handleGenerateAudio = async () => {
+              if(!voState.script) return showAlert("Tulis naskah dulu!");
+              setVoState(prev => ({ ...prev, loadingAudio: true, audioUrl: null })); 
+              try {
+                  const payload = { contents: [{ parts: [{ text: voState.script }] }], generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voState.voice } } } }, model: "gemini-2.5-flash-preview-tts" };
+                  const { audioData, sampleRate } = await callTtsApi(payload);
+                  const blob = pcmToWav(base64ToArrayBuffer(audioData), sampleRate);
+                  setVoState(prev => ({ ...prev, audioUrl: URL.createObjectURL(blob), loadingAudio: false }));
+              } catch (e) { showAlert("Gagal."); setVoState(prev => ({ ...prev, loadingAudio: false })); }
+          };
+
+          const toggleAudio = () => {
+              if(!voState.audioUrl) return;
+              if(!audioRef.current) audioRef.current = new Audio(voState.audioUrl);
+              if(voState.isPlaying) { audioRef.current.pause(); setVoState(p=>({...p, isPlaying:false})); }
+              else { audioRef.current.play(); setVoState(p=>({...p, isPlaying:true})); audioRef.current.onended = () => setVoState(p=>({...p, isPlaying:false})); }
+          };
+
+          return (
+            <div className="min-h-screen pb-20 selection:bg-yellow-500/30">
+              {alertMessage && (
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-yellow-500 w-full max-sm rounded-xl p-6 shadow-2xl text-center animate-in">
+                        <Icons.AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-bold text-white mb-6">{alertMessage}</h3>
+                        <button onClick={() => setAlertMessage(null)} className="bg-yellow-600 hover:bg-yellow-500 text-white py-2 px-8 rounded-full font-bold w-full">Tutup</button>
+                    </div>
+                </div>
+              )}
+
+              <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-lg h-16 flex items-center">
+                  <div className="max-w-7xl mx-auto px-4 flex items-center gap-3 w-full">
+                      <div className="bg-yellow-600 p-2 rounded-lg text-white"><Icons.Zap size={20} fill="currentColor"/></div>
+                      <div>
+                          <h1 className="text-white font-bold text-lg tracking-tight">GENERATOR UGC <span className="text-yellow-500">GS</span></h1>
+                          <p className="text-[10px] text-slate-500 font-medium">Tools Sulap AFFILIATE</p>
+                      </div>
+                  </div>
+              </nav>
+
+              <main className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-12 gap-8">
+                <div className="md:col-span-5 space-y-2">
+                    <StepPanel number="1" title="Upload Produk" icon={Icons.Upload}>
+                        <div className="relative aspect-square bg-slate-950 rounded-lg border-2 border-dashed border-slate-800 hover:border-yellow-500/50 transition-all flex flex-col items-center justify-center group cursor-pointer overflow-hidden">
+                            {mainPhoto ? (
+                                <React.Fragment>
+                                    <img src={mainPhoto} className="w-full h-full object-contain p-4"/>
+                                    <button onClick={(e)=>{e.stopPropagation(); setMainPhoto(null);}} className="absolute top-2 right-2 bg-red-500/80 p-1.5 rounded text-white z-20"><Icons.X size={14}/></button>
+                                </React.Fragment>
+                            ) : (
+                                <React.Fragment>
+                                    <Icons.Upload size={32} className="text-slate-600 mb-2 group-hover:text-yellow-500"/>
+                                    <p className="text-xs text-slate-500 font-medium">Klik Upload Foto Utama</p>
+                                </React.Fragment>
+                            )}
+                            <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handlePhotoUpload(e, 'main')}/>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase">Foto Pendukung (Opsional)</p>
+                            {additionalPhotos.map(p => (
+                                <div key={p.id} className="flex gap-2 items-center bg-slate-950 p-2 rounded border border-slate-800">
+                                    <img src={p.url} className="w-8 h-8 rounded object-cover"/>
+                                    <input placeholder="Keterangan..." className="flex-1 bg-transparent text-xs outline-none text-white" onChange={e => setAdditionalPhotos(prev => prev.map(ap => ap.id === p.id ? {...ap, desc: e.target.value} : ap))}/>
+                                    <button onClick={() => handleRemoveAdditional(p.id)} className="text-slate-500 hover:text-red-400"><Icons.Trash2 size={14}/></button>
+                                </div>
+                            ))}
+                            {additionalPhotos.length < 2 && (
+                                <label className="flex items-center justify-center gap-2 py-2 border border-slate-800 rounded text-xs text-slate-500 hover:bg-slate-800 cursor-pointer"><Icons.Plus size={12}/> Tambah Foto Lain<input type="file" className="hidden" onChange={e => { if(e.target.files[0]) setAdditionalPhotos([...additionalPhotos, {id: Date.now(), url: URL.createObjectURL(e.target.files[0]), file: e.target.files[0], desc: ''}]); }}/></label>
+                            )}
+                        </div>
+                    </StepPanel>
+                    <StepPanel number="2" title="Jelaskan Produk" icon={Icons.FileText}>
+                        <div className="flex justify-end mb-2">
+                            <button onClick={handleApplyRecommendation} className="text-[10px] text-yellow-400 flex items-center gap-1">{isGeneratingDesc ? <Icons.RefreshCw size={10} className="animate-spin"/> : <Icons.Sparkles size={10}/>} Auto-Generate</button>
+                        </div>
+                        <textarea value={productInfo} onChange={e => setProductInfo(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:border-yellow-500 outline-none h-24 resize-none" placeholder="Jelaskan produkmu..."/>
+                        <div className="mt-3">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Rasio Gambar</label>
+                            <select value={ratio} onChange={e=>setRatio(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none">
+                                <option value="9:16">9:16 (Story/Tiktok)</option><option value="4:5">4:5 (Feed Portrait)</option><option value="1:1">1:1 (Feed/Square)</option><option value="16:9">16:9 (Landscape/Youtube)</option>
+                            </select>
+                        </div>
+                    </StepPanel>
+                    <StepPanel number="3" title="Model AI" icon={Icons.User}>
+                        {models.length < 2 && (
+                            <label className="group block w-full text-center py-4 border-2 border-dashed border-slate-700 rounded-xl text-xs text-slate-400 cursor-pointer hover:border-yellow-500 transition-all mb-4">
+                                <div className="flex flex-col items-center gap-1 font-bold"><Icons.Plus size={16}/><span>UPLOAD WAJAH MODEL</span></div>
+                                <input type="file" className="hidden" onChange={e => handlePhotoUpload(e, 'model')}/>
+                            </label>
+                        )}
+                        {models.length > 0 ? (
+                            <div className="animate-in">
+                                <div className="grid grid-cols-2 gap-2 mb-4">
+                                    {models.map(m => (<div key={m.id} className="relative aspect-square bg-slate-950 rounded border border-slate-800"><img src={m.url} className="w-full h-full object-cover"/><button onClick={() => setModels(models.filter(x => x.id !== m.id))} className="absolute top-1 right-1 bg-black/60 p-1 rounded-full"><Icons.X size={10}/></button></div>))}
+                                </div>
+                                {models.map((m, i) => (<textarea key={m.id} value={m.styleDesc || ''} onChange={(e) => updateModelDesc(m.id, e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white mb-2 h-16" placeholder={`Pakaian Model ${i+1}...`}/>))}
+                            </div>
+                        ) : (
+                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 animate-in">
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Gender</label><select className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" value={aiModelConfig.gender} onChange={e=>setAiModelConfig({...aiModelConfig, gender: e.target.value})}><option value="auto">Otomatis</option><option value="female">Wanita</option><option value="male">Pria</option></select></div>
+                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Usia</label><select className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" value={aiModelConfig.age} onChange={e=>setAiModelConfig({...aiModelConfig, age: e.target.value})}><option>Anak-anak</option><option>Remaja</option><option>Dewasa</option><option>Orang Tua</option></select></div>
+                                </div>
+                                <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-900 rounded-lg border border-slate-700"><input type="checkbox" checked={aiModelConfig.hijab} onChange={e=>setAiModelConfig({...aiModelConfig, hijab: e.target.checked})} className="hidden"/><div className={`w-4 h-4 rounded border flex items-center justify-center ${aiModelConfig.hijab ? 'bg-yellow-600' : 'border-slate-500'}`}>{aiModelConfig.hijab && <Icons.Check size={10} className="text-white"/>}</div><span className="text-xs text-slate-300">Hijab?</span></label>
+                            </div>
+                        )}
+                    </StepPanel>
+                    <button onClick={handleGenerateButton} disabled={loading} className={`w-full py-4 rounded-xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 ${loading ? 'bg-slate-800 text-slate-500' : 'bg-yellow-600 text-white hover:bg-yellow-500'}`}>
+                        {loading ? <Icons.RefreshCw className="animate-spin" size={16}/> : <Icons.Sparkles size={16}/>}
+                        {loading ? "PROSES..." : "GENERATE ASET"}
+                    </button>
+                </div>
+                <div className="md:col-span-7 space-y-8">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><Icons.User size={16} className="text-green-500"/><h2 className="text-sm font-bold text-white uppercase">UGC Photos</h2></div>
+                        <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                            {resultsReady ? generatedImages.ugc.map((item, idx) => (
+                                <ResultCard key={item.id} item={item} onViewImage={setViewImageUrl} productInfo={productInfo} selectedRatio={ratio} onRegenerate={() => handleSingleRegenerate('ugc', idx)} />
+                            )) : (
+                                Array(3).fill(0).map((_, i) => (
+                                    <div key={i} className="shrink-0 bg-slate-900/50 rounded-lg border border-dashed border-slate-800 flex items-center justify-center" style={{ width: ratio === '16:9' ? '460px' : ratio === '1:1' ? '340px' : '280px', aspectRatio: ratio.replace(':','/') }}><Icons.ImageIcon className="text-slate-800" size={24}/></div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                        <div className="flex justify-between items-center cursor-pointer" onClick={() => setIsStudioOpen(!isStudioOpen)}>
+                            <div className="flex items-center gap-3"><div className="w-10 h-10 bg-yellow-500/10 rounded-full flex items-center justify-center text-yellow-400"><Icons.Mic size={20}/></div><h2 className="text-white font-bold">Voice Over Studio</h2></div>
+                            <Icons.ChevronDown className={`transform transition-transform ${isStudioOpen ? 'rotate-180' : 'rotate-0'}`} />
+                        </div>
+                        {isStudioOpen && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 animate-in">
+                                <div className="space-y-3">
+                                    <textarea value={voState.script} onChange={e => setVoState({...voState, script: e.target.value, audioUrl: null})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white h-32 resize-none outline-none" placeholder="Tulis naskah..."/>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select className="bg-slate-950 border border-slate-800 text-xs rounded p-2 text-white outline-none" value={voState.voice} onChange={e=>setVoState({...voState, voice: e.target.value})}>{ttsVoices.map(v => (<option key={v.id} value={v.id}>{v.name}</option>))}</select>
+                                        <button onClick={handleGenerateAudio} disabled={voState.loadingAudio} className="bg-yellow-600 text-white text-xs font-bold rounded flex items-center justify-center gap-2">{voState.loadingAudio ? <Icons.RefreshCw className="animate-spin" size={14}/> : <Icons.Volume2 size={14}/>} Audio</button>
                                     </div>
                                 </div>
-
-                                <div className="bg-slate-950/50 border border-slate-800/50 rounded-3xl p-8 flex flex-col items-center justify-center gap-6 group/play transition-colors hover:border-yellow-500/30">
-                                    {voData.audioUrl ? (
-                                        <>
-                                            <div 
-                                                className="w-24 h-24 rounded-full bg-yellow-500 flex items-center justify-center cursor-pointer shadow-[0_0_30px_rgba(234,179,8,0.3)] hover:scale-110 active:scale-90 transition-all"
-                                                onClick={() => {
-                                                    if (audioRef.current) {
-                                                        audioRef.current.play();
-                                                    } else {
-                                                        audioRef.current = new Audio(voData.audioUrl);
-                                                        audioRef.current.play();
-                                                    }
-                                                }}
-                                            >
-                                                <Play fill="currentColor" size={32} className="text-slate-950 ml-1" />
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-xs font-black text-white uppercase tracking-[0.2em]">Sample Generated</p>
-                                                <p className="text-[10px] text-slate-500 mt-1">Ready for high-quality export</p>
-                                            </div>
-                                            <a 
-                                                href={voData.audioUrl} 
-                                                download="GreenSafir-VO.wav"
-                                                className="w-full py-3 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black text-slate-400 hover:text-white hover:border-slate-600 text-center transition-all"
-                                            >DOWNLOAD MASTER (.WAV)</a>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="w-20 h-20 rounded-full border-2 border-dashed border-slate-800 flex items-center justify-center opacity-40 group-hover/play:opacity-100 transition-opacity">
-                                                <Music size={32} className="text-slate-700" />
-                                            </div>
-                                            <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest text-center">Audio Preview Component<br/>Idle State</p>
-                                        </>
-                                    )}
+                                <div className="flex flex-col justify-center items-center bg-slate-950 border border-slate-800 rounded-lg p-6">
+                                    {voState.audioUrl ? (
+                                        <div className="space-y-4 w-full">
+                                            <button onClick={toggleAudio} className="w-16 h-16 rounded-full bg-yellow-500 mx-auto flex items-center justify-center text-white">{voState.isPlaying ? <Icons.X size={24}/> : <Icons.Play size={24} fill="white" />}</button>
+                                            <a href={voState.audioUrl} download="voiceover.wav" className="block w-full py-2 bg-slate-800 text-white text-xs font-bold rounded text-center">Download WAV</a>
+                                        </div>
+                                    ) : <p className="text-xs text-slate-600">Audio ready here</p>}
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
-            </main>
+              </main>
+              <footer className="mt-12 border-t border-slate-800 py-6 text-center text-xs text-slate-500 font-mono">GREEN SAFIR | 2026</footer>
+              {viewImageUrl && (
+                  <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4" onClick={() => setViewImageUrl(null)}>
+                      <img src={viewImageUrl} className="max-h-[90vh] max-w-full rounded shadow-2xl"/>
+                  </div>
+              )}
+              {showRecModal && (
+                  <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                      <div className="bg-gray-800 border border-yellow-500 w-full max-w-lg rounded-xl p-6 shadow-2xl">
+                          <h3 className="text-xl font-bold text-yellow-400 mb-4">Rekomendasi Pengisian</h3>
+                          <p className="text-slate-300 mb-6">Biarkan AI menganalisis foto produk Anda untuk membuat deskripsi terbaik secara otomatis.</p>
+                          <div className="flex justify-end gap-4">
+                              <button onClick={() => setShowRecModal(false)} className="bg-gray-600 text-white py-2 px-6 rounded-full">Abaikan</button>
+                              <button onClick={handleApplyRecommendation} className="bg-yellow-600 text-white py-2 px-6 rounded-full">Generate Deskripsi</button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+            </div>
+          );
+        };
 
-            <footer className="border-t border-slate-900 py-16 px-6">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-                    <div className="flex flex-col items-center md:items-start">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-5 h-5 bg-yellow-500 rounded flex items-center justify-center"><Zap size={12} className="text-slate-950" fill="currentColor"/></div>
-                            <span className="text-white font-black text-xs tracking-tighter">GREEN SAFIR</span>
-                        </div>
-                        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.3em]">Affiliate Performance Accelerator</p>
-                    </div>
-                    <div className="flex gap-8 text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                        <a href="#" className="hover:text-yellow-500 transition-colors">Documentation</a>
-                        <a href="#" className="hover:text-yellow-500 transition-colors">Privacy</a>
-                        <a href="#" className="hover:text-yellow-500 transition-colors">Support</a>
-                    </div>
-                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-tighter">© 2026 GREEN SAFIR INTELLIGENCE</p>
-                </div>
-            </footer>
-
-            {/* Custom Scrollbar Styles */}
-            <style dangerouslySetInnerHTML={{ __html: `
-                .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
-                @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
-            `}} />
-        </div>
-    );
-}
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
